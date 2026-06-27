@@ -1,0 +1,18 @@
+policy_id: AWS_IAM_014
+title: IAM Access Analyzer must be enabled
+provider: aws
+resource_type: identity.account
+provider_type: aws_iam_access_analyzer
+severity: medium
+description: IAM Access Analyzer must be enabled with ACTIVE status (CIS 2.19).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.status
+    operator: ne
+    expected: ACTIVE
+evidence_fields:
+  - properties.name
+  - properties.status
+  - properties.region

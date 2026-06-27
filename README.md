@@ -1,69 +1,64 @@
-# compliance-engine
+# Platform V2 backend (compliance-engine → platform-backend)
 
-Platform V2 **backend** — inventory, unified policy engine, findings, compliance mapping, and public API.
+Modular monolith: inventory ingest, policy (later), findings (later), compliance (later), API.
 
-Modular monolith: one repo, separate K8s Deployments per worker type.
+## Phase 1 scope (current)
 
-## Pipeline position
+Full inventory pipeline:
 
 ```
-Redis events + S3 → inventory-ingest → assets DB
-                  → policy-worker → findings
-                  → compliance mapper → CIS matrix
-platform-api ← platform-ui / admin-ui
+POST /v1/scans → Redis → aws-collector → S3/local bronze → ingest worker → assets DB
+GET  /v1/assets?scan_id=...
 ```
 
-## What lives here
+### API routes
 
-| Module | K8s Deployment | Phase |
-|--------|----------------|-------|
-| `api/` | `platform-api` | 1+ |
-| `inventory/` | `inventory-ingest` | 1 |
-| `policy/` | `policy-worker` | 2 |
-| `findings/` | (library + policy worker) | 2 |
-| `compliance/` | (mapping engine) | 3 |
-| `notifications/` | (design only v1) | 5+ |
+| Method | Path |
+|--------|------|
+| GET | `/health`, `/ready` |
+| POST/GET | `/v1/integrations`, `/v1/integrations/aws` |
+| POST/GET | `/v1/scans`, `/v1/scans/{id}`, `/v1/scans/{id}/timeline` |
+| GET | `/v1/assets`, `/v1/assets/{id}`, `/v1/assets/{id}/relationships` |
 
-| Path | Purpose |
-|------|---------|
-| `policy/catalog/policies/` | YAML unified policy library (`AWS_S3_001`, …) |
-| `policy/catalog/mappings/` | Framework mappings (CIS, SOC2, …) |
-| `contracts/` | API + event schemas |
+Dev auth: `X-Tenant-ID` header.
 
-## Database
+## Quick start (local mock pipeline)
 
-**DDL lives in `platform-db`**, not here. This service connects via `DATABASE_URL` and uses schemas:
+```powershell
+# Terminal 1 — API (port 8084 if 8080/8082 busy)
+$env:API_PORT = "8084"
+python scripts/run_api.py
 
-`platform` · `assets` · `policy` · `findings` · `compliance`
+# Terminal 2 — ingest worker (one instance only)
+python scripts/run_ingest_worker.py
 
-Run migrations from [platform-db](https://github.com/YOUR_ORG/platform-db) before deploy.
+# Terminal 3 — collector worker
+cd ..\platform-collectors
+$env:COLLECTOR_MOCK = "true"
+$env:USE_LOCAL_STORAGE = "true"
+python scripts/run_collector_worker.py
+
+# Or run all in one process (dev):
+python scripts/run_phase1_local_pipeline.py
+```
+
+Requires `platform-db` migrations applied and `EXTERNAL_ID_ENCRYPTION_KEY` set.
+
+## Security
+
+- Postgres RLS via `platform.set_tenant()` per request
+- `external_id` encrypted at rest (never in API responses)
+- `statement_cache_size=0` for Supabase pooler compatibility
+- Parameterized SQL only
 
 ## Related repos
 
 | Repo | Role |
 |------|------|
-| **platform-collectors** | Writes S3 + collection events |
-| **compliance-engine** | **This repo** |
-| **platform-ui** | Customer UI → `/v1/*` |
-| **admin-ui** | Ops UI → `/v1/admin/*` |
-| **platform-db** | Postgres migrations |
-
-## Planning docs
-
-**infra-state-docs/new arch/docs/** — see [docs/LINKS.md](docs/LINKS.md)
-
-Key: `BUILD_GUIDE.md`, `POLICY_LIBRARY.md`, `PLATFORM_ARCHITECTURE.md`
-
-## Configuration
-
-```bash
-cp .env.example .env   # never commit
-```
-
-## Phase 1 exit criteria
-
-Ingest S3 snapshot → versioned assets + relationships in Postgres → list via API.
+| **platform-db** | DDL |
+| **platform-collectors** | AWS collector worker |
+| **compliance-engine** | **This repo** — API + ingest |
 
 ## Status
 
-Initial repo scaffold — implementation after [PREREQUISITES](docs/LINKS.md) complete.
+Phase 1 inventory pipeline implemented. Policy/findings = Phase 2 (official plan).

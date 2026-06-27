@@ -1,0 +1,18 @@
+policy_id: AWS_NET_004
+title: Security groups must not allow unrestricted admin ports (IPv4)
+provider: aws
+resource_type: network.security_group
+provider_type: aws_ec2_security_group
+severity: high
+description: Security groups must not allow unrestricted SSH/RDP from 0.0.0.0/0 (CIS 6.3).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_unrestricted_admin_ports_ipv4
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.group_id
+  - properties.group_name
+  - properties.allows_unrestricted_admin_ports_ipv4

@@ -1,0 +1,23 @@
+policy_id: AWS_LOG_001
+title: CloudTrail log file validation must be enabled
+provider: aws
+resource_type: governance.trail
+provider_type: aws_cloudtrail_trail
+severity: medium
+description: CloudTrail log file integrity validation must be enabled (CIS 4.2).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.log_file_validation_enabled
+        operator: missing
+      - type: field_check
+        path: properties.log_file_validation_enabled
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.name
+  - properties.log_file_validation_enabled

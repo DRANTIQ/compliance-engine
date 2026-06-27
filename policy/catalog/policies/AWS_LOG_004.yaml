@@ -1,0 +1,23 @@
+policy_id: AWS_LOG_004
+title: KMS key rotation must be enabled
+provider: aws
+resource_type: security.key
+provider_type: aws_kms_key
+severity: medium
+description: Customer-managed KMS keys must have automatic rotation enabled (CIS 4.6).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.key_rotation_enabled
+        operator: missing
+      - type: field_check
+        path: properties.key_rotation_enabled
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.key_id
+  - properties.key_rotation_enabled

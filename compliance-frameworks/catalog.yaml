@@ -1,0 +1,190 @@
+# Compliance framework inventory — reference PDFs + implementation status in this repo.
+# Machine-readable companion to README.md.
+#
+# status:
+#   reference_only  — PDF or external doc on disk; no Steampipe queries yet
+#   in_progress     — partial controls/queries in cloud-compliance-engine
+#   implemented     — seeded in catalog.yaml + queries JSON
+
+frameworks:
+  # ── CIS (Center for Internet Security) ─────────────────────────────────────
+  - id: cis_aws_foundations_v7
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: foundations
+    version: "7.0.0"
+    reference_pdf: cis/aws/foundations/CIS_Amazon_Web_Services_Foundations_Benchmark_v7.0.0.pdf
+    implementation_id: null  # engine still on cis_aws_v6; migrate when ready
+    status: reference_only
+    download: https://www.cisecurity.org/cis-benchmarks
+
+  - id: cis_aws_v6
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: foundations
+    version: "6.0.0"
+    reference_pdf: cis/aws/foundations/CIS_Amazon_Web_Services_Foundations_Benchmark_v6.0.0.pdf  # add PDF here when downloaded
+    implementation_id: cis_aws_v6
+    implementation_controls: config/cis_v6_controls.yaml   # in cloud-compliance-engine repo
+    implementation_queries: queries/cis_v6_queries.json     # in cloud-compliance-engine repo
+    status: in_progress
+
+  - id: cis_aws_compute_v1
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: compute
+    version: "1.1.0"
+    reference_pdf: cis/aws/compute/CIS AWS Compute Services Benchmark v1.1.0.pdf
+    status: reference_only
+
+  - id: cis_aws_storage_v1
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: storage
+    version: "1.0.0"
+    reference_pdf: cis/aws/storage/CIS_AWS_Storage_Services_Benchmark_v1.0.0.pdf
+    status: reference_only
+
+  - id: cis_aws_database_v2
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: database
+    version: "2.0.0"
+    reference_pdf: cis/aws/database/CIS AWS Database Services Benchmark v2.0.0 - PDF.pdf
+    status: reference_only
+
+  - id: cis_aws_eks_v2
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: kubernetes
+    version: "2.0.0"
+    reference_pdf: cis/aws/eks/CIS Amazon Elastic Kubernetes Service (EKS) Benchmark v2.0.0 PDF.pdf
+    status: reference_only
+
+  - id: cis_aws_end_user_compute_v1
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: end-user-compute
+    version: "1.2.0"
+    reference_pdf: cis/aws/end-user-compute/CIS_AWS_End_User_Compute_Services_Benchmark_v1.2.0.pdf
+    status: reference_only
+
+  - id: cis_amazon_linux_2_v4
+    publisher: CIS
+    provider: aws
+    category: compliance
+    service: os
+    version: "4.0.0"
+    reference_pdf: cis/aws/os/amazon-linux/CIS_Amazon_Linux_2_Benchmark_v4.0.0.pdf
+    status: reference_only
+    notes: OS-level benchmark; typically agent/SSM based, not Steampipe cloud API
+
+  - id: cis_azure_foundations_v6
+    publisher: CIS
+    provider: azure
+    category: compliance
+    service: foundations
+    version: "6.0.0"
+    reference_pdf: cis/azure/foundations/CIS_Microsoft_Azure_Foundations_Benchmark_v6.0.0.pdf
+    implementation_id: cis_azure_v6
+    implementation_controls: config/cis_azure_v6_controls.yaml
+    implementation_queries: data/queries.json
+    status: in_progress
+
+  - id: cis_azure_storage_v1
+    publisher: CIS
+    provider: azure
+    category: compliance
+    service: storage
+    version: "1.0.0"
+    reference_pdf: cis/azure/storage/CIS_Microsoft_Azure_Storage_Services_Benchmark_v1.0.0.pdf
+    status: reference_only
+
+  - id: cis_azure_database_v2
+    publisher: CIS
+    provider: azure
+    category: compliance
+    service: database
+    version: "2.0.0"
+    reference_pdf: cis/azure/database/CIS_Microsoft_Azure_Database_Services_Benchmark_v2.0.0.pdf
+    status: reference_only
+
+  # ── Other frameworks (reference docs — obtain separately) ─────────────────
+  - id: soc2_tsc
+    publisher: AICPA
+    provider: aws
+    category: compliance
+    service: trust-services
+    version: "2017"
+    reference_pdf: soc2/reference/README.md
+    implementation_id: soc2_aws
+    implementation_controls: config/soc2_aws_controls.yaml
+    implementation_queries: data/queries.json
+    status: in_progress
+    notes: AWS technical subset; organizational TSC criteria remain Manual
+
+  - id: iso27001
+    publisher: ISO
+    provider: multi
+    category: compliance
+    service: isms
+    version: "2022"
+    reference_pdf: iso27001/reference/README.md
+    status: reference_only
+    notes: Standard is paid; use Annex A summaries + cloud provider mappings
+
+  - id: nist_csf
+    publisher: NIST
+    provider: multi
+    category: compliance
+    service: cybersecurity-framework
+    version: "2.0"
+    reference_pdf: nist/reference/NIST.CSWP.29_CSF_2.0.pdf
+    status: reference_only
+
+  - id: nist_800_53
+    publisher: NIST
+    provider: multi
+    category: compliance
+    service: security-controls
+    version: rev5
+    reference_pdf: nist/reference/README.md
+    reference_catalog_csv: nist/reference/NIST_SP-800-53_rev5_catalog_load.csv
+    reference_assessment_csv: nist/reference/sp800-53ar5-assessment-procedures.csv
+    reference_oscal_xlsx: nist/reference/NIST_SP-800-53_rev5-derived-OSCAL.xlsx
+    reference_baselines_xlsx: nist/reference/NIST_SP-800-53B_control_baselines_Jan2022.xlsx
+    status: reference_only
+
+  - id: pci_dss
+    publisher: PCI SSC
+    provider: multi
+    category: compliance
+    service: payment-card
+    version: "4.0"
+    reference_pdf: pci-dss/reference/README.md
+    status: reference_only
+
+  - id: hipaa
+    publisher: HHS
+    provider: multi
+    category: compliance
+    service: healthcare
+    version: security-rule
+    reference_pdf: hipaa/reference/README.md
+    status: reference_only
+
+  - id: fedramp
+    publisher: GSA/FedRAMP
+    provider: multi
+    category: compliance
+    service: federal
+    version: moderate
+    reference_pdf: fedramp/reference/README.md
+    status: reference_only

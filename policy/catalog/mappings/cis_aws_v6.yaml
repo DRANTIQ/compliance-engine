@@ -1,0 +1,73 @@
+# CIS AWS v6 — policy_id to control_id mappings (one policy per control)
+framework_id: cis_aws_v6
+mappings:
+  - policy_id: AWS_IAM_001
+    control_id: '2.3'
+  - policy_id: AWS_IAM_002
+    control_id: '2.4'
+  - policy_id: AWS_IAM_003
+    control_id: '2.7'
+  - policy_id: AWS_IAM_004
+    control_id: '2.8'
+  - policy_id: AWS_IAM_005
+    control_id: '2.9'
+  - policy_id: AWS_IAM_006
+    control_id: '2.11'
+  - policy_id: AWS_IAM_007
+    control_id: '2.12'
+  - policy_id: AWS_IAM_008
+    control_id: '2.13'
+  - policy_id: AWS_IAM_009
+    control_id: '2.14'
+  - policy_id: AWS_IAM_010
+    control_id: '2.15'
+  - policy_id: AWS_IAM_011
+    control_id: '2.16'
+  - policy_id: AWS_IAM_012
+    control_id: '2.17'
+  - policy_id: AWS_IAM_013
+    control_id: '2.18'
+  - policy_id: AWS_IAM_014
+    control_id: '2.19'
+  - policy_id: AWS_S3_001
+    control_id: '3.1.1'
+  - policy_id: AWS_S3_002
+    control_id: '3.1.4'
+  - policy_id: AWS_RDS_001
+    control_id: '3.2.1'
+  - policy_id: AWS_RDS_002
+    control_id: '3.2.2'
+  - policy_id: AWS_RDS_003
+    control_id: '3.2.3'
+  - policy_id: AWS_EFS_001
+    control_id: '3.3.1'
+  - policy_id: AWS_LOG_001
+    control_id: '4.2'
+  - policy_id: AWS_LOG_002
+    control_id: '4.3'
+  - policy_id: AWS_LOG_003
+    control_id: '4.5'
+  - policy_id: AWS_LOG_004
+    control_id: '4.6'
+  - policy_id: AWS_LOG_005
+    control_id: '4.7'
+  - policy_id: AWS_S3_003
+    control_id: '4.8'
+  - policy_id: AWS_S3_004
+    control_id: '4.9'
+  - policy_id: AWS_LOG_006
+    control_id: '5.16'
+  - policy_id: AWS_NET_001
+    control_id: '6.1.1'
+  - policy_id: AWS_NET_002
+    control_id: '6.1.2'
+  - policy_id: AWS_NET_003
+    control_id: '6.2'
+  - policy_id: AWS_NET_004
+    control_id: '6.3'
+  - policy_id: AWS_NET_005
+    control_id: '6.4'
+  - policy_id: AWS_NET_006
+    control_id: '6.5'
+  - policy_id: AWS_NET_007
+    control_id: '6.7'

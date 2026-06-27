@@ -1,0 +1,23 @@
+policy_id: AWS_IAM_011
+title: AWS Support role must exist
+provider: aws
+resource_type: identity.account
+provider_type: aws_iam_account
+severity: low
+description: An IAM role with AWSSupportAccess must exist for AWS Support (CIS 2.16).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.support_role_exists
+        operator: missing
+      - type: field_check
+        path: properties.support_role_exists
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.account_id
+  - properties.support_role_exists

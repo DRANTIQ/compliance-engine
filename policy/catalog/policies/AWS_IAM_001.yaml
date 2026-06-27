@@ -1,0 +1,17 @@
+policy_id: AWS_IAM_001
+title: Root user must not have access keys
+provider: aws
+resource_type: identity.account
+provider_type: aws_iam_account
+severity: critical
+description: Ensure the AWS root user does not have active access keys (CIS 2.3).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.root_access_keys_present
+    operator: gt
+    expected: 0
+evidence_fields:
+  - properties.account_id
+  - properties.root_access_keys_present

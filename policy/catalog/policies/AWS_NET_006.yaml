@@ -1,0 +1,26 @@
+policy_id: AWS_NET_006
+title: Default security group must restrict all traffic
+provider: aws
+resource_type: network.security_group
+provider_type: aws_ec2_security_group
+severity: medium
+description: Default VPC security groups must not allow unrestricted inbound traffic (CIS 6.5).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+      - type: field_check
+        path: properties.is_default
+        operator: eq
+        expected: true
+      - type: field_check
+        path: properties.default_allows_unrestricted_ingress
+        operator: eq
+        expected: true
+evidence_fields:
+  - properties.group_id
+  - properties.group_name
+  - properties.is_default
+  - properties.default_allows_unrestricted_ingress

@@ -1,0 +1,17 @@
+policy_id: AWS_IAM_010
+title: IAM users must not have full admin policies attached
+provider: aws
+resource_type: identity.user
+provider_type: aws_iam_user
+severity: high
+description: IAM users must not have AdministratorAccess attached directly (CIS 2.15).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_administrator_access
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.user_name
+  - properties.has_administrator_access

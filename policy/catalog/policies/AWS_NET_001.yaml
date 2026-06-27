@@ -1,0 +1,23 @@
+policy_id: AWS_NET_001
+title: EBS default encryption must be enabled
+provider: aws
+resource_type: identity.account
+provider_type: aws_account_ebs_encryption
+severity: high
+description: EBS encryption by default must be enabled in each region (CIS 6.1.1).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.default_ebs_encryption_enabled
+        operator: missing
+      - type: field_check
+        path: properties.default_ebs_encryption_enabled
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.region
+  - properties.default_ebs_encryption_enabled

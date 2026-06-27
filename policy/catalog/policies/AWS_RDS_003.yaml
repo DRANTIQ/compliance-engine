@@ -1,0 +1,17 @@
+policy_id: AWS_RDS_003
+title: RDS instances must not be publicly accessible
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: critical
+description: RDS DB instances must not be publicly accessible (CIS 3.2.3).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.publicly_accessible
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.db_instance_identifier
+  - properties.publicly_accessible

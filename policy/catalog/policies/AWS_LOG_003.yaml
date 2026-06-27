@@ -1,0 +1,16 @@
+policy_id: AWS_LOG_003
+title: CloudTrail logs must use KMS encryption
+provider: aws
+resource_type: governance.trail
+provider_type: aws_cloudtrail_trail
+severity: medium
+description: CloudTrail trails must encrypt logs with a KMS key (CIS 4.5).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.kms_key_id
+    operator: missing
+evidence_fields:
+  - properties.name
+  - properties.kms_key_id

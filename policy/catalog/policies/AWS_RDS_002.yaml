@@ -1,0 +1,17 @@
+policy_id: AWS_RDS_002
+title: RDS auto minor version upgrade must be enabled
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: medium
+description: RDS DB instances must enable auto minor version upgrade (CIS 3.2.2).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.auto_minor_version_upgrade
+    operator: eq
+    expected: false
+evidence_fields:
+  - properties.db_instance_identifier
+  - properties.auto_minor_version_upgrade

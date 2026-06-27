@@ -1,0 +1,23 @@
+policy_id: AWS_IAM_004
+title: IAM password policy prevents reuse
+provider: aws
+resource_type: identity.account
+provider_type: aws_iam_account_password_policy
+severity: medium
+description: IAM password policy must prevent password reuse (CIS 2.8).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.password_reuse_prevention
+        operator: missing
+      - type: field_check
+        path: properties.password_reuse_prevention
+        operator: eq
+        expected: 0
+evidence_fields:
+  - properties.account_id
+  - properties.password_reuse_prevention

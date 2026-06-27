@@ -1,0 +1,17 @@
+policy_id: AWS_IAM_008
+title: IAM access keys must be rotated within 90 days
+provider: aws
+resource_type: identity.user
+provider_type: aws_iam_user
+severity: medium
+description: Active IAM access keys older than 90 days must be rotated (CIS 2.13).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_stale_active_access_key
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.user_name
+  - properties.has_stale_active_access_key

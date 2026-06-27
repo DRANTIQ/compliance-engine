@@ -1,0 +1,127 @@
+openapi: 3.1.0
+info:
+  title: Platform V2 API
+  version: 0.2.0
+  description: Phase 2 — health, integrations, scans
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      responses:
+        "200":
+          description: OK
+  /ready:
+    get:
+      summary: Readiness probe (Postgres + Redis)
+      responses:
+        "200":
+          description: OK
+        "503":
+          description: Dependency unavailable
+  /v1/integrations/aws:
+    post:
+      summary: Register AWS integration
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AwsIntegrationCreate"
+      responses:
+        "201":
+          description: Created
+  /v1/integrations:
+    get:
+      summary: List integrations
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+  /v1/scans:
+    get:
+      summary: List scans
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Create scan and enqueue collection job
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [integration_id]
+              properties:
+                integration_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Created
+  /v1/scans/{scan_id}:
+    get:
+      summary: Get scan
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: scan_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    AwsIntegrationCreate:
+      type: object
+      required: [account_id, role_arn, external_id, regions]
+      properties:
+        account_id:
+          type: string
+          pattern: "^[0-9]{12}$"
+        role_arn:
+          type: string
+        external_id:
+          type: string
+        regions:
+          type: array
+          items:
+            type: string
+          minItems: 1

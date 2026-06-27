@@ -1,0 +1,31 @@
+policy_id: AWS_IAM_002
+title: Root user must have MFA enabled
+provider: aws
+resource_type: identity.account
+provider_type: aws_iam_account
+severity: critical
+description: Ensure MFA is enabled on the root user when a root password exists (CIS 2.4).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+      - type: field_check
+        path: properties.root_password_present
+        operator: eq
+        expected: true
+      - type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.root_mfa_enabled
+            operator: missing
+          - type: field_check
+            path: properties.root_mfa_enabled
+            operator: eq
+            expected: false
+evidence_fields:
+  - properties.account_id
+  - properties.root_password_present
+  - properties.root_mfa_enabled

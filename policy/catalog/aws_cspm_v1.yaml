@@ -1,0 +1,356 @@
+# Unified AWS CSPM policy catalog — CIS AWS v6 automated subset (35 policies)
+# Source: infra-state-docs/new arch/tests/fixtures/cis_aws_v6_controls.json
+version: '1.0.0'
+pack_id: pack_aws_cis_v6
+framework_id: cis_aws_v6
+policies:
+  - policy_id: AWS_IAM_001
+    control_ref: iam-root-access-keys
+    cis_control_id: '2.3'
+    domain: iam
+    title: Root user must not have access keys
+    severity: critical
+    resource_type: identity.account
+    provider_type: aws_iam_account
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_002
+    control_ref: iam-root-mfa
+    cis_control_id: '2.4'
+    domain: iam
+    title: Root user must have MFA enabled
+    severity: critical
+    resource_type: identity.account
+    provider_type: aws_iam_account
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_003
+    control_ref: iam-password-min-length
+    cis_control_id: '2.7'
+    domain: iam
+    title: IAM password policy minimum length
+    severity: medium
+    resource_type: identity.account
+    provider_type: aws_iam_account_password_policy
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_004
+    control_ref: iam-password-reuse
+    cis_control_id: '2.8'
+    domain: iam
+    title: IAM password policy prevents reuse
+    severity: medium
+    resource_type: identity.account
+    provider_type: aws_iam_account_password_policy
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_005
+    control_ref: iam-user-mfa
+    cis_control_id: '2.9'
+    domain: iam
+    title: IAM user must have MFA enabled
+    severity: high
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_006
+    control_ref: iam-credentials-unused
+    cis_control_id: '2.11'
+    domain: iam
+    title: Unused IAM credentials must be disabled
+    severity: medium
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_007
+    control_ref: iam-single-access-key
+    cis_control_id: '2.12'
+    domain: iam
+    title: IAM user must have at most one active access key
+    severity: medium
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_008
+    control_ref: iam-access-key-rotation
+    cis_control_id: '2.13'
+    domain: iam
+    title: IAM access keys must be rotated within 90 days
+    severity: medium
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_009
+    control_ref: iam-permissions-via-groups
+    cis_control_id: '2.14'
+    domain: iam
+    title: IAM users must receive permissions via groups
+    severity: medium
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_010
+    control_ref: iam-admin-policies
+    cis_control_id: '2.15'
+    domain: iam
+    title: IAM users must not have full admin policies attached
+    severity: high
+    resource_type: identity.user
+    provider_type: aws_iam_user
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_011
+    control_ref: iam-support-role
+    cis_control_id: '2.16'
+    domain: iam
+    title: AWS Support role must exist
+    severity: low
+    resource_type: identity.account
+    provider_type: aws_iam_account
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_012
+    control_ref: iam-instance-roles
+    cis_control_id: '2.17'
+    domain: iam
+    title: EC2 instances must use IAM instance roles
+    severity: medium
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_013
+    control_ref: iam-expired-certificates
+    cis_control_id: '2.18'
+    domain: iam
+    title: Expired IAM SSL/TLS certificates must be removed
+    severity: medium
+    resource_type: identity.certificate
+    provider_type: aws_iam_server_certificate
+    collector: iam
+    status: implemented
+  - policy_id: AWS_IAM_014
+    control_ref: iam-access-analyzer
+    cis_control_id: '2.19'
+    domain: iam
+    title: IAM Access Analyzer must be enabled
+    severity: medium
+    resource_type: identity.account
+    provider_type: aws_iam_access_analyzer
+    collector: iam
+    status: implemented
+  - policy_id: AWS_S3_001
+    control_ref: s3-deny-http
+    cis_control_id: '3.1.1'
+    domain: s3
+    title: S3 bucket policy must deny HTTP requests
+    severity: high
+    resource_type: storage.bucket
+    provider_type: aws_s3_bucket
+    collector: s3
+    status: implemented
+  - policy_id: AWS_S3_002
+    control_ref: s3-public-access
+    cis_control_id: '3.1.4'
+    domain: s3
+    title: S3 bucket must block public access
+    severity: critical
+    resource_type: storage.bucket
+    provider_type: aws_s3_bucket
+    collector: s3
+    status: implemented
+  - policy_id: AWS_RDS_001
+    control_ref: rds-encryption
+    cis_control_id: '3.2.1'
+    domain: rds
+    title: RDS instance encryption at rest must be enabled
+    severity: high
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: rds
+    status: implemented
+  - policy_id: AWS_RDS_002
+    control_ref: rds-auto-upgrade
+    cis_control_id: '3.2.2'
+    domain: rds
+    title: RDS auto minor version upgrade must be enabled
+    severity: medium
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: rds
+    status: implemented
+  - policy_id: AWS_RDS_003
+    control_ref: rds-public
+    cis_control_id: '3.2.3'
+    domain: rds
+    title: RDS instances must not be publicly accessible
+    severity: critical
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: rds
+    status: implemented
+  - policy_id: AWS_EFS_001
+    control_ref: efs-encryption
+    cis_control_id: '3.3.1'
+    domain: efs
+    title: EFS file systems must be encrypted
+    severity: high
+    resource_type: storage.filesystem
+    provider_type: aws_efs_file_system
+    collector: efs
+    status: implemented
+  - policy_id: AWS_LOG_001
+    control_ref: cloudtrail-validation
+    cis_control_id: '4.2'
+    domain: logging
+    title: CloudTrail log file validation must be enabled
+    severity: medium
+    resource_type: governance.trail
+    provider_type: aws_cloudtrail_trail
+    collector: logging
+    status: implemented
+  - policy_id: AWS_LOG_002
+    control_ref: config-enabled
+    cis_control_id: '4.3'
+    domain: logging
+    title: AWS Config must be enabled
+    severity: medium
+    resource_type: governance.config
+    provider_type: aws_config_configuration_recorder
+    collector: logging
+    status: implemented
+  - policy_id: AWS_LOG_003
+    control_ref: cloudtrail-kms
+    cis_control_id: '4.5'
+    domain: logging
+    title: CloudTrail logs must use KMS encryption
+    severity: medium
+    resource_type: governance.trail
+    provider_type: aws_cloudtrail_trail
+    collector: logging
+    status: implemented
+  - policy_id: AWS_LOG_004
+    control_ref: kms-rotation
+    cis_control_id: '4.6'
+    domain: logging
+    title: KMS key rotation must be enabled
+    severity: medium
+    resource_type: security.key
+    provider_type: aws_kms_key
+    collector: logging
+    status: implemented
+  - policy_id: AWS_LOG_005
+    control_ref: vpc-flow-logs
+    cis_control_id: '4.7'
+    domain: logging
+    title: VPC flow logging must be enabled
+    severity: medium
+    resource_type: network.vpc
+    provider_type: aws_ec2_vpc
+    collector: logging
+    status: implemented
+  - policy_id: AWS_S3_003
+    control_ref: s3-write-logging
+    cis_control_id: '4.8'
+    domain: s3
+    title: S3 bucket write events must be logged
+    severity: medium
+    resource_type: storage.bucket
+    provider_type: aws_s3_bucket
+    collector: s3
+    status: implemented
+  - policy_id: AWS_S3_004
+    control_ref: s3-read-logging
+    cis_control_id: '4.9'
+    domain: s3
+    title: S3 bucket read events must be logged
+    severity: medium
+    resource_type: storage.bucket
+    provider_type: aws_s3_bucket
+    collector: s3
+    status: implemented
+  - policy_id: AWS_LOG_006
+    control_ref: security-hub-enabled
+    cis_control_id: '5.16'
+    domain: logging
+    title: AWS Security Hub must be enabled
+    severity: medium
+    resource_type: governance.hub
+    provider_type: aws_securityhub_hub
+    collector: logging
+    status: implemented
+  - policy_id: AWS_NET_001
+    control_ref: ebs-encryption-default
+    cis_control_id: '6.1.1'
+    domain: network
+    title: EBS default encryption must be enabled
+    severity: high
+    resource_type: identity.account
+    provider_type: aws_account_ebs_encryption
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_002
+    control_ref: cifs-restricted
+    cis_control_id: '6.1.2'
+    domain: network
+    title: CIFS access must be restricted
+    severity: medium
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_003
+    control_ref: nacl-admin-ports
+    cis_control_id: '6.2'
+    domain: network
+    title: NACLs must not allow unrestricted admin ports
+    severity: high
+    resource_type: network.nacl
+    provider_type: aws_ec2_network_acl
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_004
+    control_ref: sg-admin-ports-ipv4
+    cis_control_id: '6.3'
+    domain: network
+    title: Security groups must not allow unrestricted admin ports (IPv4)
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_005
+    control_ref: sg-admin-ports-ipv6
+    cis_control_id: '6.4'
+    domain: network
+    title: Security groups must not allow unrestricted admin ports (IPv6)
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_006
+    control_ref: default-sg-restricts-traffic
+    cis_control_id: '6.5'
+    domain: network
+    title: Default security group must restrict all traffic
+    severity: medium
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_NET_007
+    control_ref: ec2-imdsv2
+    cis_control_id: '6.7'
+    domain: network
+    title: EC2 instances must require IMDSv2
+    severity: high
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: network
+    status: implemented

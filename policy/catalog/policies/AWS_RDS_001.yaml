@@ -1,0 +1,17 @@
+policy_id: AWS_RDS_001
+title: RDS instance encryption at rest must be enabled
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: high
+description: RDS DB instances must have storage encryption enabled (CIS 3.2.1).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.storage_encrypted
+    operator: eq
+    expected: false
+evidence_fields:
+  - properties.db_instance_identifier
+  - properties.storage_encrypted

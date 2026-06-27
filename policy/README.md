@@ -4,8 +4,9 @@ Unified Policy Library + YAML DSL evaluator.
 
 | Path | Purpose |
 |------|---------|
-| `catalog/policies/` | One YAML per policy (`AWS_S3_001.yaml`) |
-| `catalog/mappings/` | Framework control mappings (separate from policy logic) |
+| `catalog/aws_cspm_v1.yaml` | **Master catalog** — 35 policies, IDs, CIS control, collector, status |
+| `catalog/policies/` | One YAML per **implemented** policy (`AWS_*`) |
+| `catalog/mappings/cis_aws_v6.yaml` | CIS AWS v6 framework mappings |
 | `engine/` | Evaluator (fail_when, field_check, compound) |
 
 Deployment: `policy-worker` on EKS.

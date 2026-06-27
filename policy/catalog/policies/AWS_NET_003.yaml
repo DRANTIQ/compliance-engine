@@ -1,0 +1,17 @@
+policy_id: AWS_NET_003
+title: NACLs must not allow unrestricted admin ports
+provider: aws
+resource_type: network.nacl
+provider_type: aws_ec2_network_acl
+severity: high
+description: Network ACLs must not allow unrestricted SSH/RDP from the internet (CIS 6.2).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_unrestricted_admin_ports
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.network_acl_id
+  - properties.allows_unrestricted_admin_ports

@@ -1,0 +1,17 @@
+policy_id: AWS_EFS_001
+title: EFS file systems must be encrypted
+provider: aws
+resource_type: storage.filesystem
+provider_type: aws_efs_file_system
+severity: high
+description: Amazon EFS file systems must be encrypted at rest (CIS 3.3.1).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.encrypted
+    operator: eq
+    expected: false
+evidence_fields:
+  - properties.file_system_id
+  - properties.encrypted

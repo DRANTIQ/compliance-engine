@@ -1,0 +1,23 @@
+policy_id: AWS_LOG_005
+title: VPC flow logging must be enabled
+provider: aws
+resource_type: network.vpc
+provider_type: aws_ec2_vpc
+severity: medium
+description: VPC flow logs must be enabled and active (CIS 4.7).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.flow_logs_enabled
+        operator: missing
+      - type: field_check
+        path: properties.flow_logs_enabled
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.vpc_id
+  - properties.flow_logs_enabled

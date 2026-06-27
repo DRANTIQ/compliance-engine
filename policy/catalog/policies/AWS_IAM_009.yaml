@@ -1,0 +1,19 @@
+policy_id: AWS_IAM_009
+title: IAM users must receive permissions via groups
+provider: aws
+resource_type: identity.user
+provider_type: aws_iam_user
+severity: medium
+description: IAM users must not have directly attached policies without group membership (CIS 2.14).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_direct_attached_policies_without_groups
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.user_name
+  - properties.has_direct_attached_policies_without_groups
+  - properties.group_count
+  - properties.attached_policy_count

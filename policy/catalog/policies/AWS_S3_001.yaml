@@ -1,0 +1,23 @@
+policy_id: AWS_S3_001
+title: S3 bucket policy must deny HTTP requests
+provider: aws
+resource_type: storage.bucket
+provider_type: aws_s3_bucket
+severity: high
+description: S3 bucket policy must deny requests that are not sent over HTTPS (CIS 3.1.1).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.denies_insecure_transport
+        operator: missing
+      - type: field_check
+        path: properties.denies_insecure_transport
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.name
+  - properties.denies_insecure_transport

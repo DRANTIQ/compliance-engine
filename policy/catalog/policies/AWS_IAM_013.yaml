@@ -1,0 +1,18 @@
+policy_id: AWS_IAM_013
+title: Expired IAM SSL/TLS certificates must be removed
+provider: aws
+resource_type: identity.certificate
+provider_type: aws_iam_server_certificate
+severity: medium
+description: IAM server certificates past their expiration date must be removed (CIS 2.18).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.is_expired
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.name
+  - properties.expiration
+  - properties.is_expired

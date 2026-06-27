@@ -1,0 +1,17 @@
+policy_id: AWS_IAM_006
+title: Unused IAM credentials must be disabled
+provider: aws
+resource_type: identity.user
+provider_type: aws_iam_user
+severity: medium
+description: Active IAM access keys unused for 45 days or more must be disabled (CIS 2.11).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_unused_active_credentials
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.user_name
+  - properties.has_unused_active_credentials

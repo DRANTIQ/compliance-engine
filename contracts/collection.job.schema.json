@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "collection.job.schema.json",
+  "title": "CollectionJob",
+  "type": "object",
+  "required": [
+    "job_id",
+    "scan_id",
+    "tenant_id",
+    "integration_id",
+    "collection_run_id",
+    "account_id",
+    "role_arn",
+    "external_id",
+    "regions",
+    "s3_bucket",
+    "s3_prefix"
+  ],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "scan_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "integration_id": { "type": "string", "format": "uuid" },
+    "collection_run_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "account_id": { "type": "string", "pattern": "^[0-9]{12}$" },
+    "role_arn": { "type": "string", "minLength": 1 },
+    "external_id": { "type": "string", "minLength": 1 },
+    "regions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "s3_bucket": { "type": "string", "minLength": 1 },
+    "s3_prefix": { "type": "string", "minLength": 1 },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "aws.iam",
+          "aws.s3",
+          "aws.ec2",
+          "aws.rds",
+          "aws.efs",
+          "aws.logging",
+          "aws.network"
+        ]
+      },
+      "default": [
+        "aws.iam",
+        "aws.s3",
+        "aws.ec2",
+        "aws.rds",
+        "aws.efs",
+        "aws.logging",
+        "aws.network"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

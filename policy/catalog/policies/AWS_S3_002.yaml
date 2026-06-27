@@ -1,0 +1,32 @@
+policy_id: AWS_S3_002
+title: S3 bucket must block public access
+provider: aws
+resource_type: storage.bucket
+provider_type: aws_s3_bucket
+severity: critical
+description: S3 Block Public Access must be fully enabled (CIS 3.1.4).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.public_access_block.BlockPublicAcls
+        operator: ne
+        expected: true
+      - type: field_check
+        path: properties.public_access_block.BlockPublicPolicy
+        operator: ne
+        expected: true
+      - type: field_check
+        path: properties.public_access_block.IgnorePublicAcls
+        operator: ne
+        expected: true
+      - type: field_check
+        path: properties.public_access_block.RestrictPublicBuckets
+        operator: ne
+        expected: true
+evidence_fields:
+  - properties.name
+  - properties.public_access_block

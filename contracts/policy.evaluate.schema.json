@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.local/contracts/policy.evaluate.schema.json",
+  "title": "PolicyEvaluateEvent",
+  "type": "object",
+  "required": ["event_type", "tenant_id", "scan_id", "timestamp"],
+  "properties": {
+    "event_type": { "const": "policy.evaluate" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "scan_id": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "resource_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

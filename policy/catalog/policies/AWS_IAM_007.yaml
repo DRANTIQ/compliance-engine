@@ -1,0 +1,17 @@
+policy_id: AWS_IAM_007
+title: IAM user must have at most one active access key
+provider: aws
+resource_type: identity.user
+provider_type: aws_iam_user
+severity: medium
+description: IAM users must not have more than one active access key (CIS 2.12).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.active_access_key_count
+    operator: gt
+    expected: 1
+evidence_fields:
+  - properties.user_name
+  - properties.active_access_key_count

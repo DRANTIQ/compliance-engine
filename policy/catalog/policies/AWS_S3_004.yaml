@@ -1,0 +1,23 @@
+policy_id: AWS_S3_004
+title: S3 bucket read events must be logged
+provider: aws
+resource_type: storage.bucket
+provider_type: aws_s3_bucket
+severity: medium
+description: S3 object-level read activity must be logged via CloudTrail (CIS 4.9).
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+      - type: field_check
+        path: properties.cloudtrail_s3_read_logging
+        operator: missing
+      - type: field_check
+        path: properties.cloudtrail_s3_read_logging
+        operator: eq
+        expected: false
+evidence_fields:
+  - properties.name
+  - properties.cloudtrail_s3_read_logging

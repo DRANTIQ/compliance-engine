@@ -1,0 +1,18 @@
+policy_id: AWS_NET_002
+title: CIFS access must be restricted
+provider: aws
+resource_type: network.security_group
+provider_type: aws_ec2_security_group
+severity: medium
+description: Security groups must not allow unrestricted CIFS (port 445) access (CIS 6.1.2).
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_unrestricted_cifs
+    operator: eq
+    expected: true
+evidence_fields:
+  - properties.group_id
+  - properties.group_name
+  - properties.allows_unrestricted_cifs
