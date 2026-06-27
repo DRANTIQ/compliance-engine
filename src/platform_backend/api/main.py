@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from platform_backend.api.routes import assets, compliance, findings, health, integrations, me, scans
+from platform_backend.api.routes import admin, assets, compliance, findings, health, integrations, me, scans
 from platform_backend.config.settings import get_settings
 from platform_backend.db.pool import DatabasePool
 from platform_backend.queue.redis_client import close_redis_client, create_redis_client
@@ -72,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(assets.router)
     app.include_router(findings.router)
     app.include_router(compliance.router)
+    app.include_router(admin.router)
     return app
 
 

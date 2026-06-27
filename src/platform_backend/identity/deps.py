@@ -63,3 +63,4 @@ def require_roles(*roles: PlatformRole) -> Callable:
 
 require_read_access = require_roles(*sorted(READ_ROLES))
 require_write_access = require_roles(*sorted(WRITE_ROLES))
+require_super_admin = require_roles("super_admin")

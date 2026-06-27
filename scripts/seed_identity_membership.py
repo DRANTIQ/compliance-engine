@@ -38,7 +38,7 @@ async def main() -> int:
         database_url = f"{database_url}{sep}sslmode=require"
 
     tenant_id = UUID(args.tenant_id)
-    conn = await asyncpg.connect(database_url)
+    conn = await asyncpg.connect(database_url, statement_cache_size=0)
     try:
         tenant = await conn.fetchrow("SELECT id FROM platform.tenants WHERE id = $1", tenant_id)
         if not tenant:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from fastapi import HTTPException, status
 from jwt import PyJWKClient, decode
@@ -24,22 +25,35 @@ class OidcJwtVerifier:
         self._jwks_client = PyJWKClient(jwks_uri)
 
     def verify(self, token: str) -> TokenClaims:
-        try:
-            signing_key = self._jwks_client.get_signing_key_from_jwt(token)
-            payload = decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
-                audience=self._audience,
-                issuer=self._issuer,
-                options={"require": ["exp", "iss", "sub"]},
-            )
-        except InvalidTokenError as exc:
-            logger.info("jwt verification failed", extra={"error": str(exc)})
+        last_exc: InvalidTokenError | None = None
+        for attempt in range(3):
+            try:
+                signing_key = self._jwks_client.get_signing_key_from_jwt(token)
+                payload = decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
+                    audience=self._audience,
+                    issuer=self._issuer,
+                    options={"require": ["exp", "iss", "sub"]},
+                )
+                break
+            except InvalidTokenError as exc:
+                last_exc = exc
+                if attempt < 2:
+                    time.sleep(0.15 * (attempt + 1))
+                    continue
+                logger.info("jwt verification failed", extra={"error": str(exc)})
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="invalid or expired token",
+                ) from exc
+        else:
+            assert last_exc is not None
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="invalid or expired token",
-            ) from exc
+            ) from last_exc
 
         email = payload.get("email")
         if email is not None:
