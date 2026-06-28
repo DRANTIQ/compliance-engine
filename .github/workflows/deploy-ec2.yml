@@ -20,6 +20,8 @@ concurrency:
 
 env:
   DOCKER_IMAGE: drantiq/drantiq
+  # Override in repo Settings → Variables if the collectors repo path differs
+  COLLECTORS_REPO: ${{ vars.COLLECTORS_REPO || format('{0}/platform-collectors', github.repository_owner) }}
 
 jobs:
   test:
@@ -31,11 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
+      - name: Checkout platform-collectors
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/platform-collectors
+          repository: ${{ env.COLLECTORS_REPO }}
           path: platform-collectors
-          token: ${{ secrets.COLLECTORS_REPO_PAT || secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN cannot read other private repos — set COLLECTORS_REPO_PAT (PAT with repo read).
+          token: ${{ secrets.COLLECTORS_REPO_PAT || github.token }}
 
       - uses: actions/setup-python@v5
         with:
@@ -58,11 +62,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
+      - name: Checkout platform-collectors
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/platform-collectors
+          repository: ${{ env.COLLECTORS_REPO }}
           path: platform-collectors
-          token: ${{ secrets.COLLECTORS_REPO_PAT || secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN cannot read other private repos — set COLLECTORS_REPO_PAT (PAT with repo read).
+          token: ${{ secrets.COLLECTORS_REPO_PAT || github.token }}
 
       - name: Docker meta
         id: meta

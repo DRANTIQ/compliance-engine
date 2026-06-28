@@ -74,7 +74,42 @@ Repository → **Settings → Secrets and variables → Actions → New reposito
 | `S3_REGION` | Default `us-east-1` |
 | `S3_PREFIX` | Default `platform-v2` |
 | `CORS_ORIGINS` | Default includes app + admin Vercel URLs |
-| `COLLECTORS_REPO_PAT` | Only if `platform-collectors` is private and not in same org |
+| `COLLECTORS_REPO_PAT` | **Required if `platform-collectors` is private** — see below |
+
+### `COLLECTORS_REPO_PAT` — fix “Not Found” on checkout
+
+GitHub Actions’ default token can only access the **current** repo. If `DRANTIQ/platform-collectors` is private (or not visible to the workflow), checkout fails with:
+
+`Not Found - https://docs.github.com/rest/repos/repos#get-a-repository`
+
+**1. Confirm the repo exists on GitHub**
+
+```bash
+cd platform-collectors
+git remote -v
+git push -u origin main   # if not pushed yet
+```
+
+**2. Create a PAT with read access**
+
+- GitHub → **Settings** → **Developer settings** → **Fine-grained personal access tokens**
+- **Repository access:** only `platform-collectors`
+- **Permissions:** Contents → **Read-only**
+- Generate and copy the token
+
+(Classic PAT: scope `repo` also works.)
+
+**3. Add secret to `compliance-engine`**
+
+| Secret | Value |
+|--------|--------|
+| `COLLECTORS_REPO_PAT` | the PAT from step 2 |
+
+**Optional variable** if the repo path is not `DRANTIQ/platform-collectors`:
+
+| Variable | Example |
+|----------|---------|
+| `COLLECTORS_REPO` | `DRANTIQ/platform-collectors` |
 
 ### Variables (optional)
 
