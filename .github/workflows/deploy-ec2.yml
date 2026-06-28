@@ -176,6 +176,7 @@ jobs:
           port: 22
           source: deploy/ec2/bundle/docker-compose.prod.yml,deploy/ec2/bundle/.env,deploy/ec2/bundle/remote-deploy.sh
           target: /opt/platform/deploy
+          strip_components: 3
           overwrite: true
 
       - name: Run deploy on EC2
@@ -196,6 +197,11 @@ jobs:
             set -euo pipefail
             export DEPLOY_DIR="/opt/platform/deploy"
             export DOCKER_IMAGE="drantiq/drantiq"
+            if [[ ! -f "${DEPLOY_DIR}/remote-deploy.sh" ]]; then
+              echo "Deploy files missing in ${DEPLOY_DIR}. Contents:" >&2
+              find "${DEPLOY_DIR}" -type f 2>/dev/null || true
+              exit 1
+            fi
             chmod +x "${DEPLOY_DIR}/remote-deploy.sh"
             bash "${DEPLOY_DIR}/remote-deploy.sh"
 
