@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     log_format: str = Field(default="json", alias="LOG_FORMAT")
     dev_tenant_header_auth: bool = Field(default=True, alias="DEV_TENANT_HEADER_AUTH")
 
+    rate_limit_per_minute: int = Field(default=120, alias="RATE_LIMIT_PER_MINUTE")
+    api_docs_enabled: bool = Field(default=True, alias="API_DOCS_ENABLED")
+    sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
+
     oidc_enabled: bool = Field(default=False, alias="OIDC_ENABLED")
     oidc_issuer: str = Field(default="", alias="OIDC_ISSUER")
     oidc_audience: str = Field(default="authenticated", alias="OIDC_AUDIENCE")

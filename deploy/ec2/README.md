@@ -190,7 +190,7 @@ python3 deploy/ec2/render_production_env.py
 
 | Issue | Fix |
 |-------|-----|
-| `denied: requested access to the resource is denied` | Check `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`; repo name `drantiq/drantiq` |
+| `BACKEND_IMAGE is missing` on compose | Run from `/opt/platform/deploy`; add to `.env` or `export BACKEND_IMAGE=... COLLECTOR_IMAGE=...` (see below) |
 | Collector build fails checkout | Add `COLLECTORS_REPO_PAT` with read access to `platform-collectors` |
 | `/ready` fails | `DATABASE_URL` or Redis |
 | 502 nginx | `docker compose ps` — API container down |

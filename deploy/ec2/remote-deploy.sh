@@ -25,6 +25,19 @@ fi
 
 cd "${DEPLOY_DIR}"
 
+# Persist image tags in .env so manual `docker compose` from this dir works (compose reads .env).
+upsert_env() {
+  local key="$1" val="$2" file="${DEPLOY_DIR}/.env"
+  if grep -q "^${key}=" "$file" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${val}|" "$file"
+  else
+    printf '\n%s=%s\n' "$key" "$val" >> "$file"
+  fi
+}
+upsert_env BACKEND_IMAGE "${BACKEND_IMAGE}"
+upsert_env COLLECTOR_IMAGE "${COLLECTOR_IMAGE}"
+chmod 600 "${DEPLOY_DIR}/.env"
+
 if [[ -n "${DOCKERHUB_USERNAME:-}" && -n "${DOCKERHUB_TOKEN:-}" ]]; then
   log "Docker Hub login"
   echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
@@ -44,9 +57,11 @@ log "Start stack"
 
 log "Wait for API health"
 for _ in $(seq 1 30); do
-  if curl -sf "http://127.0.0.1:8090/health" >/dev/null; then
-    log "API healthy"
+  if curl -sf "http://127.0.0.1:8090/health" >/dev/null && curl -sf "http://127.0.0.1:8090/ready" >/dev/null; then
+    log "API healthy and ready"
     curl -sf "http://127.0.0.1:8090/health"
+    echo
+    curl -sf "http://127.0.0.1:8090/ready"
     echo
     "${COMPOSE[@]}" -f docker-compose.prod.yml ps
     exit 0

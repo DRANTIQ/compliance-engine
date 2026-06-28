@@ -14,7 +14,7 @@ COPY scripts ./scripts
 COPY contracts ./contracts
 COPY policy ./policy
 
-RUN pip install --upgrade pip && pip install .
+RUN pip install --upgrade pip && pip install ".[observability]"
 
 USER 10001
 

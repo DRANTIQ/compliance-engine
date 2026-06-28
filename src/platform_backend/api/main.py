@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from platform_backend.api.middleware.observability import RequestObservabilityMiddleware, SanitizeFilter
+from platform_backend.api.middleware.security import RateLimitMiddleware, SecurityHeadersMiddleware
 from platform_backend.api.openapi import API_DESCRIPTION, configure_openapi
 from platform_backend.api.routes import (
     admin,
@@ -30,8 +32,10 @@ def configure_logging() -> None:
     settings = get_settings()
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
     logging.basicConfig(level=level)
-    if settings.log_format == "json":
-        for handler in logging.root.handlers:
+    sanitize = SanitizeFilter()
+    for handler in logging.root.handlers:
+        handler.addFilter(sanitize)
+        if settings.log_format == "json":
             handler.setFormatter(
                 logging.Formatter(
                     '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}'
@@ -39,10 +43,23 @@ def configure_logging() -> None:
             )
 
 
+def _init_sentry(dsn: str) -> None:
+    if not dsn.strip():
+        return
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=dsn, traces_sample_rate=0.1)
+        logger.info("sentry initialized")
+    except ImportError:
+        logger.warning("SENTRY_DSN set but sentry-sdk not installed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
     settings = get_settings()
+    _init_sentry(settings.sentry_dsn)
     db_pool = await DatabasePool.create(settings)
     redis_client = await create_redis_client(settings)
     app.state.db_pool = db_pool
@@ -57,14 +74,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    docs_url = "/docs" if settings.api_docs_enabled else None
+    redoc_url = "/redoc" if settings.api_docs_enabled else None
+    openapi_url = "/openapi.json" if settings.api_docs_enabled else None
+
     app = FastAPI(
         title="Platform V2 API",
         version="0.5.0",
         description=API_DESCRIPTION,
         lifespan=lifespan,
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
         swagger_ui_parameters={
             "docExpansion": "list",
             "filter": True,
@@ -73,6 +94,9 @@ def create_app() -> FastAPI:
         },
     )
     configure_openapi(app)
+    app.add_middleware(RequestObservabilityMiddleware)
+    app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

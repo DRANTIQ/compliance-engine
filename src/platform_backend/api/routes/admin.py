@@ -106,6 +106,7 @@ class AdminOverviewResponse(BaseModel):
     active_scan_count: int
     collect_queue_depth: int
     events_queue_depth: int
+    policy_queue_depth: int
     api_status: str
 
 
@@ -148,6 +149,7 @@ async def admin_overview(
     _principal: PlatformPrincipal = Depends(require_super_admin),
     repo: AdminRepository = Depends(get_admin_repo),
     redis_client: redis.Redis = Depends(get_redis),
+    db: DatabasePool = Depends(get_db_pool),
     settings: Settings = Depends(get_settings_dep),
 ) -> AdminOverviewResponse:
     tenant_count = await repo.count_tenants()
@@ -157,13 +159,21 @@ async def admin_overview(
         active += await repo.count_scans_by_status(st)
     collect_depth = int(await redis_client.llen(settings.collect_queue_key))
     events_depth = int(await redis_client.llen(settings.platform_events_key))
+    policy_depth = int(await redis_client.llen(settings.policy_queue_key))
+    try:
+        await db.ping()
+        await redis_client.ping()
+        api_status = "ready"
+    except Exception:
+        api_status = "degraded"
     return AdminOverviewResponse(
         tenant_count=tenant_count,
         failed_scan_count=failed_scan_count,
         active_scan_count=active,
         collect_queue_depth=collect_depth,
         events_queue_depth=events_depth,
-        api_status="healthy",
+        policy_queue_depth=policy_depth,
+        api_status=api_status,
     )
 
 

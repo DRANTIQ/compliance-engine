@@ -20,6 +20,7 @@ OPTIONAL = (
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
+    "SENTRY_DSN",
 )
 
 # Defaults for production EC2 + Docker Compose (override via env if needed)
@@ -41,6 +42,8 @@ DEFAULTS: dict[str, str] = {
     "OIDC_AUDIENCE": "authenticated",
     "COLLECTOR_MOCK": "false",
     "POLICY_CATALOG_PATH": "/app/policy/catalog/policies",
+    "API_DOCS_ENABLED": "false",
+    "RATE_LIMIT_PER_MINUTE": "120",
     "AWS_DEFAULT_REGION": "us-east-1",
     "AWS_EC2_METADATA_DISABLED": "false",
     "CORS_ORIGINS": "https://app.drantiq.ai,https://admin.drantiq.ai",

@@ -128,6 +128,7 @@ jobs:
           S3_REGION: ${{ secrets.S3_REGION }}
           S3_PREFIX: ${{ secrets.S3_PREFIX }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           python3 deploy/ec2/render_production_env.py > deploy/ec2/.env.rendered
 
