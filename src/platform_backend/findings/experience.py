@@ -123,12 +123,13 @@ def customer_remediation(remediation: dict[str, Any]) -> dict[str, Any]:
 def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool = False) -> dict[str, Any]:
     base = enrich_finding(finding)
     rem = base["remediation"]
-    display = rem.get("headline") or finding.get("title")
+    display = rem.get("headline") or finding.get("title") or finding.get("policy_id") or "Security finding"
+    technical = finding.get("title") or finding.get("policy_id") or "Finding"
     out: dict[str, Any] = {
         **base,
         "display_title": display,
         "plain_language_title": display,
-        "technical_title": finding.get("title"),
+        "technical_title": technical,
         "affected_resource": affected_resource_name(finding),
         "resource_type_label": resource_type_label(finding.get("resource_type", "")),
         "risk": rem.get("risk_summary") or finding.get("description"),
@@ -175,7 +176,7 @@ def build_risk_summary(
                 "resource_type": item["resource_type_label"],
                 "why_it_matters": item["risk"],
                 "business_impact": item["business_impact"],
-                "estimated_fix_minutes": rem.get("estimated_minutes"),
+                "estimated_fix_minutes": rem.get("estimated_fix_minutes") or rem.get("estimated_minutes"),
             }
         )
         if len(top_risks) >= top_n:
@@ -210,7 +211,7 @@ def build_fix_priorities(findings: list[dict[str, Any]], *, limit: int = 20) -> 
                 "resource_type": item["resource_type_label"],
                 "why_it_matters": item["risk"],
                 "business_impact": item["business_impact"],
-                "estimated_fix_minutes": rem.get("estimated_minutes"),
+                "estimated_fix_minutes": rem.get("estimated_fix_minutes") or rem.get("estimated_minutes"),
                 "frameworks": item["frameworks"],
                 "internet_exposed": _internet_exposed(finding),
                 "data_sensitive": finding.get("resource_type") in DATA_SENSITIVE_TYPES,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -17,6 +16,7 @@ from platform_backend.findings.repository import FindingsRepository, evaluate_sc
 from platform_backend.platform.models.scan import ScanStatus
 from platform_backend.platform.repositories.integrations import ScanRepository
 from platform_backend.policy.catalog.loader import load_policies
+from platform_backend.policy.catalog.registry import resolve_catalog_path
 from platform_backend.queue.redis_client import close_redis_client, create_redis_client
 
 logger = logging.getLogger(__name__)
@@ -37,11 +37,7 @@ class PolicyWorker:
         self._findings = FindingsRepository(db)
         self._compliance = ComplianceMapper(db)
         self._writer = AssetWriter(db)
-        catalog_path = Path(self._settings.policy_catalog_path)
-        if not catalog_path.is_absolute():
-            repo_root = Path(__file__).resolve().parents[3]
-            catalog_path = repo_root / catalog_path
-        self._policies = load_policies(catalog_path)
+        self._policies = load_policies(resolve_catalog_path(self._settings))
 
     async def run_forever(self) -> None:
         logger.info(

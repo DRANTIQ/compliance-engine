@@ -40,6 +40,7 @@ DEFAULTS: dict[str, str] = {
     "OIDC_ENABLED": "true",
     "OIDC_AUDIENCE": "authenticated",
     "COLLECTOR_MOCK": "false",
+    "POLICY_CATALOG_PATH": "/app/policy/catalog/policies",
     "AWS_DEFAULT_REGION": "us-east-1",
     "AWS_EC2_METADATA_DISABLED": "false",
     "CORS_ORIGINS": "https://app.drantiq.ai,https://admin.drantiq.ai",

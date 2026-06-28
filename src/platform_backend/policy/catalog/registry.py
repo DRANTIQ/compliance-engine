@@ -11,10 +11,18 @@ from platform_backend.policy.catalog.models import PolicyDefinition
 def resolve_catalog_path(settings: Settings | None = None) -> Path:
     cfg = settings or get_settings()
     catalog_path = Path(cfg.policy_catalog_path)
-    if not catalog_path.is_absolute():
-        repo_root = Path(__file__).resolve().parents[4]
-        catalog_path = repo_root / catalog_path
-    return catalog_path
+    if catalog_path.is_absolute():
+        return catalog_path
+
+    candidates = [
+        Path(__file__).resolve().parents[4] / catalog_path,
+        Path("/app") / catalog_path,
+        Path.cwd() / catalog_path,
+    ]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[0]
 
 
 @lru_cache
