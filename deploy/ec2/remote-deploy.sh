@@ -16,6 +16,8 @@ if [[ ! -f "${DEPLOY_DIR}/.env" ]]; then
   exit 1
 fi
 
+chmod 600 "${DEPLOY_DIR}/.env"
+
 if [[ ! -f "${DEPLOY_DIR}/docker-compose.prod.yml" ]]; then
   echo "Missing ${DEPLOY_DIR}/docker-compose.prod.yml" >&2
   exit 1

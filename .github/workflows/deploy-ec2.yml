@@ -130,7 +130,6 @@ jobs:
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
         run: |
           python3 deploy/ec2/render_production_env.py > deploy/ec2/.env.rendered
-          chmod 600 deploy/ec2/.env.rendered
 
       - name: Resolve deploy host
         id: host
@@ -154,6 +153,8 @@ jobs:
           cp deploy/ec2/.env.rendered deploy/ec2/bundle/.env
           cp deploy/ec2/remote-deploy.sh deploy/ec2/bundle/
           chmod +x deploy/ec2/bundle/remote-deploy.sh
+          # appleboy/scp-action runs in Docker as a non-owner user; 600 causes "Permission denied" on tar.
+          chmod 644 deploy/ec2/bundle/.env
 
       - name: Copy deploy files to EC2
         uses: appleboy/scp-action@v0.1.7
