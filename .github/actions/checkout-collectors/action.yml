@@ -1,0 +1,59 @@
+name: Checkout platform-collectors
+description: Verify PAT access, then checkout the private collectors repo.
+
+inputs:
+  collectors-repo:
+    description: "GitHub repo slug, e.g. DRANTIQ/platform-collectors"
+    required: true
+  token:
+    description: "PAT with Contents:Read on the collectors repo (COLLECTORS_REPO_PAT)"
+    required: true
+  path:
+    description: "Checkout directory"
+    required: false
+    default: platform-collectors
+
+runs:
+  using: composite
+  steps:
+    - name: Verify platform-collectors access
+      shell: bash
+      env:
+        COLLECTORS_REPO: ${{ inputs.collectors-repo }}
+        COLLECTORS_PAT: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        if [[ -z "${COLLECTORS_PAT}" ]]; then
+          echo "::error title=Missing COLLECTORS_REPO_PAT::The default GITHUB_TOKEN cannot read other private repos."
+          echo ""
+          echo "Add secret COLLECTORS_REPO_PAT to compliance-engine:"
+          echo "  1. GitHub → Settings → Developer settings → Fine-grained tokens"
+          echo "  2. Repository: platform-collectors, Permission: Contents → Read"
+          echo "  3. If DRANTIQ org requires it: Org → Settings → PATs → Approve the token"
+          echo "  4. compliance-engine → Settings → Secrets → COLLECTORS_REPO_PAT"
+          exit 1
+        fi
+        HTTP=$(curl -s -o /tmp/collectors-repo.json -w '%{http_code}' \
+          -H "Authorization: Bearer ${COLLECTORS_PAT}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${COLLECTORS_REPO}")
+        if [[ "${HTTP}" == "200" ]]; then
+          echo "Access OK: ${COLLECTORS_REPO}"
+          exit 0
+        fi
+        echo "::error title=Cannot access ${COLLECTORS_REPO} (HTTP ${HTTP})::"
+        cat /tmp/collectors-repo.json 2>/dev/null || true
+        echo ""
+        echo "Common fixes:"
+        echo "  • Push platform-collectors to GitHub: git push -u origin main"
+        echo "  • PAT must include Contents:Read on ${COLLECTORS_REPO}"
+        echo "  • Org owner must approve fine-grained PAT under DRANTIQ → Settings → Personal access tokens"
+        echo "  • Set variable COLLECTORS_REPO if the slug is not DRANTIQ/platform-collectors"
+        exit 1
+
+    - name: Checkout platform-collectors
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.collectors-repo }}
+        path: ${{ inputs.path }}
+        token: ${{ inputs.token }}
