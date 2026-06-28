@@ -1,0 +1,3186 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Platform V2 API",
+    "description": "\n# Platform V2 API\n\nMulti-tenant cloud security platform: AWS inventory collection, policy evaluation,\nfindings, and CIS compliance scoring.\n\n**Interactive docs:** `/docs` (Swagger UI) \u00b7 `/redoc` (ReDoc) \u00b7 `/openapi.json`\n\n---\n\n## Authentication\n\nProduction and local dev (default) use **Supabase JWT**. The API validates the\n`Authorization: Bearer <access_token>` header via Supabase JWKS (ES256).\n\n### Step 1 \u2014 Get a Supabase access token\n\n```http\nPOST https://<project-ref>.supabase.co/auth/v1/token?grant_type=password\napikey: <SUPABASE_ANON_KEY>\nContent-Type: application/json\n\n{\n  \"email\": \"admin@drantiq.local\",\n  \"password\": \"password123\"\n}\n```\n\nResponse field: `access_token` (JWT, ~1 hour TTL).\n\n### Step 2 \u2014 Call Platform API\n\n```http\nGET http://localhost:8090/v1/me\nAuthorization: Bearer <access_token>\n```\n\nThe API resolves `sub` + `iss` from the JWT against `platform.tenant_memberships`\nand applies Postgres RLS for the tenant.\n\n### Test users (dev)\n\n| Email | Role | Use for |\n|-------|------|---------|\n| `admin@drantiq.local` | `tenant_admin` | platform-ui \u2014 scans, integrations |\n| `user@drantiq.local` | `viewer` | Read-only |\n| `ops@drantiq.local` | `super_admin` | admin-ui \u2014 `/v1/admin/*` |\n\nMembership must exist in `platform.tenant_memberships` (seed via\n`scripts/seed_identity_membership.py`).\n\n### Swagger UI\n\n1. Open **Authorize** (top right)\n2. **SupabaseJWT** \u2192 paste `access_token` only (no `Bearer` prefix)\n3. Try **GET /v1/me** to confirm\n\n### Dev header auth (optional)\n\nWhen `DEV_TENANT_HEADER_AUTH=true` on the backend, you may skip JWT and send:\n\n| Header | Example |\n|--------|---------|\n| `X-Tenant-ID` | Tenant UUID |\n| `X-Role` | `tenant_admin` \u00b7 `viewer` \u00b7 `super_admin` |\n\nUse **DevHeaders** scheme in Authorize for local testing without Supabase.\n\n---\n\n## Scan lifecycle\n\n```\nPOST /v1/scans \u2192 Redis collect queue \u2192 collector \u2192 S3 bronze \u2192 ingest \u2192 policy \u2192 findings \u2192 CIS\n```\n\nStatuses: `created` \u2192 `queued` \u2192 `collecting` \u2192 `ingesting` \u2192 `inventory_ready` \u2192\n`evaluating` \u2192 `completed` | `completed_with_errors` | `failed`\n\nPoll **GET /v1/scans/{id}** until terminal state before reading findings/assets.\n\n---\n\n## Roles\n\n| Role | Access |\n|------|--------|\n| `viewer` | Read scans, assets, findings, compliance |\n| `tenant_admin` | + create integrations, trigger scans |\n| `super_admin` | + `/v1/admin/*` cross-tenant ops |\n\n---\n\n## Postman\n\nImport `postman/Platform-V2-API.postman_collection.json` and run\n`python scripts/sync_postman_env.py` to refresh tokens from `.env`.\n",
+    "version": "0.5.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Returns `healthy` if the API process is running. Used by load balancers and k8s liveness checks. **No auth.**",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "API process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness probe",
+        "description": "Checks Postgres and Redis connectivity. Returns 503 if either dependency is down. Use before running E2E tests. **No auth.**",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Postgres and Redis reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Ready Ready Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database or Redis unavailable"
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Current user profile",
+        "description": "Returns the authenticated principal resolved from Supabase JWT or dev headers. **Use this first** after Authorize in Swagger to confirm token and membership.\n\n- **401** \u2014 missing or invalid Bearer token\n- **403** \u2014 JWT valid but no row in `platform.tenant_memberships`",
+        "operationId": "get_me_v1_me_get",
+        "responses": {
+          "200": {
+            "description": "Membership resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Authorization header"
+          },
+          "403": {
+            "description": "User not provisioned for any tenant"
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/integrations/aws": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Register AWS integration",
+        "description": "Connect a customer AWS account via cross-account IAM role + external ID. Requires **tenant_admin** or **super_admin**.\n\nCustomer must trust the hub account and grant read-only permissions. `external_id` is stored encrypted and never returned in responses.\n\n- **409** \u2014 integration already exists for this account\n- **400** \u2014 validation error (account_id, regions, external_id length)",
+        "operationId": "register_aws_integration_v1_integrations_aws_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AwsIntegrationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Integration created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate account"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/integrations": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "List AWS integrations",
+        "description": "All integrations for the authenticated tenant. Use `id` when calling **POST /v1/scans**.",
+        "operationId": "list_integrations_v1_integrations_get",
+        "responses": {
+          "200": {
+            "description": "Integration list (may be empty)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IntegrationResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Integrations V1 Integrations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans": {
+      "post": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Create scan and enqueue collection",
+        "description": "Starts a new security scan for the given integration. Enqueues a job on `platform:collect.aws`; workers collect AWS inventory to S3, ingest assets, evaluate policies, and compute CIS score.\n\nRequires **tenant_admin** or **super_admin**. Poll **GET /v1/scans/{id}** until status is `completed`, `completed_with_errors`, or `failed` before reading findings.",
+        "operationId": "create_scan_v1_scans_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scan queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Integration not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "List scans",
+        "description": "Recent scans for the tenant, newest first.",
+        "operationId": "list_scans_v1_scans_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScanResponse"
+                  },
+                  "title": "Response List Scans V1 Scans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/timeline": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Scan event timeline",
+        "description": "Append-only collection/policy events for the scan (from `assets.collection_events`).",
+        "operationId": "get_scan_timeline_v1_scans__scan_id__timeline_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Scan Timeline V1 Scans  Scan Id  Timeline Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scan not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Get scan by ID",
+        "description": "Scan status, account_id, collection sub-status, and error payload if failed.",
+        "operationId": "get_scan_v1_scans__scan_id__get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scan not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/compliance": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "CIS compliance summary",
+        "description": "Weighted CIS AWS v6 score and control summary for the scan. Same data as compliance framework endpoint, compact shape.",
+        "operationId": "get_scan_compliance_summary_v1_scans__scan_id__compliance_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          },
+          {
+            "name": "framework_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "cis_aws_v6",
+              "title": "Framework Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Scan Compliance Summary V1 Scans  Scan Id  Compliance Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scan or compliance results not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/inventory-completeness": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Inventory completeness score",
+        "description": "Ops metric: expected vs collected resource types for the scan.",
+        "operationId": "get_inventory_completeness_v1_scans__scan_id__inventory_completeness_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completeness report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Inventory Completeness V1 Scans  Scan Id  Inventory Completeness Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scan not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/policy-coverage": {
+      "get": {
+        "tags": [
+          "scans"
+        ],
+        "summary": "Policy evaluation coverage",
+        "description": "Which of the ~35 YAML policies were evaluated vs skipped for this scan.",
+        "operationId": "get_policy_coverage_v1_scans__scan_id__policy_coverage_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy coverage report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Policy Coverage V1 Scans  Scan Id  Policy Coverage Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scan not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/assets": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "List assets for scan",
+        "description": "Paginated inventory for a completed scan. Filter by `resource_type` optionally.",
+        "operationId": "list_assets_v1_assets_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          },
+          {
+            "name": "resource_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter e.g. aws_iam_user",
+              "title": "Resource Type"
+            },
+            "description": "Filter e.g. aws_iam_user"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetResponse"
+                  },
+                  "title": "Response List Assets V1 Assets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/assets/search": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Search assets",
+        "description": "Full-text search over resource properties and tags for a scan. Requires `q` and/or `type` and/or `tag`.",
+        "operationId": "search_assets_v1_assets_search_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Free-text search",
+              "title": "Q"
+            },
+            "description": "Free-text search"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Resource type filter",
+              "title": "Type"
+            },
+            "description": "Resource type filter"
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tag filter as key or key=value",
+              "title": "Tag"
+            },
+            "description": "Tag filter as key or key=value"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching assets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetResponse"
+                  },
+                  "title": "Response Search Assets V1 Assets Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/assets/{resource_id}": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Get single asset",
+        "description": "One resource by `resource_id` for the given scan.",
+        "operationId": "get_asset_v1_assets__resource_id__get",
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Resource Id"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/assets/{resource_id}/relationships": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Asset relationships",
+        "description": "IAM graph edges (e.g. role \u2192 policy attachment) for a resource in the scan.",
+        "operationId": "get_asset_relationships_v1_assets__resource_id__relationships_get",
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Resource Id"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relationship list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelationshipResponse"
+                  },
+                  "title": "Response Get Asset Relationships V1 Assets  Resource Id  Relationships Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/findings": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "List findings for scan",
+        "description": "Policy evaluation results for a scan. Filter by `result=fail` for issues only. Includes remediation copy from policy YAML catalog.",
+        "operationId": "list_findings_v1_findings_get",
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "pass | fail | error",
+              "title": "Result"
+            },
+            "description": "pass | fail | error"
+          },
+          {
+            "name": "policy_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter e.g. AWS_S3_001",
+              "title": "Policy Id"
+            },
+            "description": "Filter e.g. AWS_S3_001"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open | resolved | suppressed",
+              "title": "Status"
+            },
+            "description": "open | resolved | suppressed"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finding list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FindingResponse"
+                  },
+                  "title": "Response List Findings V1 Findings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/findings/{finding_id}": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Get finding by ID",
+        "description": "Single finding with full remediation block. Requires `scan_id` query param for tenant scoping.",
+        "operationId": "get_finding_v1_findings__finding_id__get",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Finding Id"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Scan UUID",
+              "title": "Scan Id"
+            },
+            "description": "Scan UUID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finding detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Finding not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/compliance/frameworks": {
+      "get": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "List compliance frameworks",
+        "description": "Available frameworks with mapped policies (currently CIS AWS v6).",
+        "operationId": "list_frameworks_v1_compliance_frameworks_get",
+        "responses": {
+          "200": {
+            "description": "Framework list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FrameworkSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Frameworks V1 Compliance Frameworks Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/compliance/frameworks/{framework_id}/scans/{scan_id}": {
+      "get": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "CIS control matrix for scan",
+        "description": "Full compliance result: score, per-control status, linked findings. Used by platform-ui CIS tab.",
+        "operationId": "get_scan_compliance_v1_compliance_frameworks__framework_id__scans__scan_id__get",
+        "parameters": [
+          {
+            "name": "framework_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Framework Id"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance matrix",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanComplianceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Results not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/overview": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Platform ops overview",
+        "description": "Cross-tenant counts: tenants, failed/active scans, Redis queue depths. **super_admin only.** Login as ops@drantiq.local.",
+        "operationId": "admin_overview_v1_admin_overview_get",
+        "responses": {
+          "200": {
+            "description": "Overview metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not super_admin"
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/tenants": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List all tenants",
+        "description": "Cross-tenant list for admin-ui. **super_admin only.**",
+        "operationId": "list_tenants_v1_admin_tenants_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TenantResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Tenants V1 Admin Tenants Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create tenant",
+        "description": "Provision a new customer tenant. Slug must be unique lowercase alphanumeric with hyphens.",
+        "operationId": "create_tenant_v1_admin_tenants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slug exists"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/tenants/{tenant_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get tenant",
+        "description": "Single tenant by UUID.",
+        "operationId": "get_tenant_v1_admin_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update tenant",
+        "description": "Rename or suspend/activate tenant.",
+        "operationId": "update_tenant_v1_admin_tenants__tenant_id__patch",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No fields"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/tenants/{tenant_id}/memberships": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List tenant memberships",
+        "description": "Supabase/OIDC users linked to tenant with roles.",
+        "operationId": "list_memberships_v1_admin_tenants__tenant_id__memberships_get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MembershipResponse"
+                  },
+                  "title": "Response List Memberships V1 Admin Tenants  Tenant Id  Memberships Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Provision user membership",
+        "description": "Link Supabase user (`auth_issuer` + `auth_subject` from JWT) to tenant. Issuer is typically `https://<project>.supabase.co/auth/v1`.",
+        "operationId": "create_membership_v1_admin_tenants__tenant_id__memberships_post",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/scans": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List scans (cross-tenant)",
+        "description": "Recent scans across all tenants. Filter `?status=failed` for ops triage.",
+        "operationId": "list_admin_scans_v1_admin_scans_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminScanResponse"
+                  },
+                  "title": "Response List Admin Scans V1 Admin Scans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/tenants/{tenant_id}/integrations": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List tenant integrations (admin)",
+        "description": "Same as tenant-scoped integrations list but callable by super_admin for any tenant.",
+        "operationId": "list_tenant_integrations_v1_admin_tenants__tenant_id__integrations_get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminIntegrationResponse"
+                  },
+                  "title": "Response List Tenant Integrations V1 Admin Tenants  Tenant Id  Integrations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/tenants/{tenant_id}/scans": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List scans for tenant (admin)",
+        "description": "Recent scans for one tenant from admin-ui tenant detail.",
+        "operationId": "list_tenant_scans_v1_admin_tenants__tenant_id__scans_get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminScanResponse"
+                  },
+                  "title": "Response List Tenant Scans V1 Admin Tenants  Tenant Id  Scans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Trigger scan for tenant (admin)",
+        "description": "Ops-initiated scan from admin-ui tenant detail. Same pipeline as POST /v1/scans.",
+        "operationId": "create_tenant_scan_v1_admin_tenants__tenant_id__scans_post",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminScanCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scan queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminScanCreateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant or integration not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "SupabaseJWT": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminIntegrationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "role_arn": {
+            "type": "string",
+            "title": "Role Arn"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "provider",
+          "account_id",
+          "role_arn",
+          "regions",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminIntegrationResponse"
+      },
+      "AdminOverviewResponse": {
+        "properties": {
+          "tenant_count": {
+            "type": "integer",
+            "title": "Tenant Count"
+          },
+          "failed_scan_count": {
+            "type": "integer",
+            "title": "Failed Scan Count"
+          },
+          "active_scan_count": {
+            "type": "integer",
+            "title": "Active Scan Count"
+          },
+          "collect_queue_depth": {
+            "type": "integer",
+            "title": "Collect Queue Depth"
+          },
+          "events_queue_depth": {
+            "type": "integer",
+            "title": "Events Queue Depth"
+          },
+          "api_status": {
+            "type": "string",
+            "title": "Api Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_count",
+          "failed_scan_count",
+          "active_scan_count",
+          "collect_queue_depth",
+          "events_queue_depth",
+          "api_status"
+        ],
+        "title": "AdminOverviewResponse"
+      },
+      "AdminScanCreate": {
+        "properties": {
+          "integration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Integration Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "integration_id"
+        ],
+        "title": "AdminScanCreate"
+      },
+      "AdminScanCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "integration_id": {
+            "type": "string",
+            "title": "Integration Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "integration_id",
+          "status",
+          "trace_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminScanCreateResponse"
+      },
+      "AdminScanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "tenant_name": {
+            "type": "string",
+            "title": "Tenant Name"
+          },
+          "tenant_slug": {
+            "type": "string",
+            "title": "Tenant Slug"
+          },
+          "integration_id": {
+            "type": "string",
+            "title": "Integration Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "tenant_name",
+          "tenant_slug",
+          "integration_id",
+          "status",
+          "trace_id",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminScanResponse"
+      },
+      "AssetResponse": {
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id",
+            "description": "Stable resource identifier (often ARN)"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type",
+            "description": "Normalized type, e.g. aws_s3_bucket"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "properties": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Properties",
+            "description": "Bronze-normalized resource properties"
+          },
+          "tags": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tags"
+          },
+          "collected_at": {
+            "type": "string",
+            "title": "Collected At"
+          },
+          "ingested_at": {
+            "type": "string",
+            "title": "Ingested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resource_id",
+          "resource_type",
+          "provider",
+          "provider_type",
+          "account_id",
+          "properties",
+          "tags",
+          "collected_at",
+          "ingested_at"
+        ],
+        "title": "AssetResponse"
+      },
+      "AwsIntegrationCreate": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "maxLength": 12,
+            "minLength": 12,
+            "title": "Account Id",
+            "description": "12-digit AWS account ID",
+            "examples": [
+              "387957186076"
+            ]
+          },
+          "role_arn": {
+            "type": "string",
+            "minLength": 20,
+            "title": "Role Arn",
+            "description": "Customer IAM role ARN the hub account can AssumeRole into",
+            "examples": [
+              "arn:aws:iam::387957186076:role/SteampipeReadRole"
+            ]
+          },
+          "external_id": {
+            "type": "string",
+            "minLength": 8,
+            "title": "External Id",
+            "description": "STS external ID (encrypted at rest, min 8 chars)"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Regions",
+            "description": "AWS regions to scan",
+            "examples": [
+              [
+                "us-east-1"
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "role_arn",
+          "external_id",
+          "regions"
+        ],
+        "title": "AwsIntegrationCreate"
+      },
+      "ControlResultResponse": {
+        "properties": {
+          "control_id": {
+            "type": "string",
+            "title": "Control Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "pass | fail | not_assessed | manual | error"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "mapped_policy_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Mapped Policy Ids"
+          },
+          "fail_count": {
+            "type": "integer",
+            "title": "Fail Count"
+          },
+          "pass_count": {
+            "type": "integer",
+            "title": "Pass Count"
+          },
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Finding Ids"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Evidence"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "title": "Evaluated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "control_id",
+          "status",
+          "title",
+          "mapped_policy_ids",
+          "fail_count",
+          "pass_count",
+          "finding_ids",
+          "evidence",
+          "evaluated_at"
+        ],
+        "title": "ControlResultResponse"
+      },
+      "FindingResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "policy_id": {
+            "type": "string",
+            "title": "Policy Id",
+            "description": "Unified policy ID e.g. AWS_S3_001"
+          },
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "result": {
+            "type": "string",
+            "title": "Result",
+            "description": "pass | fail | error"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "open | resolved | suppressed"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Evidence",
+            "description": "Fields that triggered the policy"
+          },
+          "remediation": {
+            "$ref": "#/components/schemas/RemediationResponse"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "title": "Evaluated At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "policy_id",
+          "resource_id",
+          "resource_type",
+          "result",
+          "status",
+          "severity",
+          "title",
+          "evidence",
+          "remediation",
+          "evaluated_at",
+          "created_at"
+        ],
+        "title": "FindingResponse"
+      },
+      "FrameworkSummary": {
+        "properties": {
+          "framework_id": {
+            "type": "string",
+            "title": "Framework Id",
+            "description": "e.g. cis_aws_v6"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "framework_id",
+          "title",
+          "provider",
+          "version_label"
+        ],
+        "title": "FrameworkSummary"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IntegrationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "role_arn": {
+            "type": "string",
+            "title": "Role Arn"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "active | invalid | disabled"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "provider",
+          "account_id",
+          "role_arn",
+          "regions",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "IntegrationResponse"
+      },
+      "MeResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id",
+            "description": "Tenant UUID from membership"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "tenant_admin | viewer | super_admin"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject",
+            "description": "JWT `sub` claim (Supabase user UID)"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "Email from JWT or users table"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id",
+            "description": "Internal platform.users id"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer",
+            "description": "JWT `iss` (Supabase auth issuer URL)"
+          },
+          "auth_mode": {
+            "type": "string",
+            "title": "Auth Mode",
+            "description": "jwt or dev_header"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "role",
+          "subject",
+          "auth_mode"
+        ],
+        "title": "MeResponse"
+      },
+      "MembershipCreate": {
+        "properties": {
+          "auth_issuer": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Auth Issuer"
+          },
+          "auth_subject": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Auth Subject"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "pattern": "^(tenant_admin|viewer|super_admin)$",
+            "title": "Role",
+            "default": "tenant_admin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "auth_issuer",
+          "auth_subject"
+        ],
+        "title": "MembershipCreate"
+      },
+      "MembershipResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "auth_issuer": {
+            "type": "string",
+            "title": "Auth Issuer"
+          },
+          "auth_subject": {
+            "type": "string",
+            "title": "Auth Subject"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "tenant_id",
+          "role",
+          "auth_issuer",
+          "auth_subject",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MembershipResponse"
+      },
+      "RelationshipResponse": {
+        "properties": {
+          "from_resource_id": {
+            "type": "string",
+            "title": "From Resource Id"
+          },
+          "to_resource_id": {
+            "type": "string",
+            "title": "To Resource Id"
+          },
+          "relationship_type": {
+            "type": "string",
+            "title": "Relationship Type"
+          },
+          "properties": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Properties"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_resource_id",
+          "to_resource_id",
+          "relationship_type",
+          "properties",
+          "created_at"
+        ],
+        "title": "RelationshipResponse"
+      },
+      "RemediationResponse": {
+        "properties": {
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline",
+            "description": "Short risk headline for UI"
+          },
+          "risk_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Summary"
+          },
+          "business_impact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Impact"
+          },
+          "fix_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix Summary"
+          },
+          "estimated_fix_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Fix Minutes"
+          },
+          "framework_mappings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Framework Mappings",
+            "description": "CIS / SOC2 control refs"
+          },
+          "aws_cli": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Cli",
+            "description": "Suggested AWS CLI remediation"
+          },
+          "terraform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terraform"
+          },
+          "cloudformation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudformation"
+          }
+        },
+        "type": "object",
+        "title": "RemediationResponse"
+      },
+      "ScanComplianceResponse": {
+        "properties": {
+          "framework_id": {
+            "type": "string",
+            "title": "Framework Id"
+          },
+          "framework_title": {
+            "type": "string",
+            "title": "Framework Title"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "scan_id": {
+            "type": "string",
+            "title": "Scan Id"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Weighted compliance score 0\u2013100"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Summary",
+            "description": "pass/fail/not_assessed counts"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "title": "Evaluated At"
+          },
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlResultResponse"
+            },
+            "type": "array",
+            "title": "Controls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "framework_id",
+          "framework_title",
+          "version_label",
+          "scan_id",
+          "score",
+          "summary",
+          "evaluated_at",
+          "controls"
+        ],
+        "title": "ScanComplianceResponse"
+      },
+      "ScanCreate": {
+        "properties": {
+          "integration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Integration Id",
+            "description": "UUID from GET /v1/integrations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "integration_id"
+        ],
+        "title": "ScanCreate"
+      },
+      "ScanDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "integration_id": {
+            "type": "string",
+            "title": "Integration Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "collection_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "integration_id",
+          "status",
+          "trace_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScanDetailResponse"
+      },
+      "ScanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "integration_id": {
+            "type": "string",
+            "title": "Integration Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "integration_id",
+          "status",
+          "trace_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScanResponse"
+      },
+      "TenantCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "title": "TenantCreate"
+      },
+      "TenantResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TenantResponse"
+      },
+      "TenantUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(active|suspended)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "TenantUpdate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "SupabaseJWT": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase `access_token` from POST .../auth/v1/token?grant_type=password. Paste token only in Authorize dialog."
+      },
+      "DevTenantId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Tenant-ID",
+        "description": "Tenant UUID. Only when DEV_TENANT_HEADER_AUTH=true."
+      },
+      "DevRole": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Role",
+        "description": "tenant_admin | viewer | super_admin. Pair with DevTenantId."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness and readiness probes. No authentication required."
+    },
+    {
+      "name": "identity",
+      "description": "Current user profile from JWT or dev headers. Use to verify auth setup."
+    },
+    {
+      "name": "integrations",
+      "description": "AWS account connections (AssumeRole + external ID). Requires `tenant_admin` or `super_admin` to register."
+    },
+    {
+      "name": "scans",
+      "description": "Scan orchestration: trigger collection, poll status, timeline, CIS summary, inventory completeness, policy coverage."
+    },
+    {
+      "name": "assets",
+      "description": "Versioned inventory per scan. Resources and IAM relationships from bronze ingest."
+    },
+    {
+      "name": "findings",
+      "description": "Policy evaluation results with remediation metadata (AWS CLI, Terraform, risk copy). Keyed by `policy_id` (e.g. AWS_S3_001)."
+    },
+    {
+      "name": "compliance",
+      "description": "CIS AWS v6 framework mapping \u2014 control matrix and weighted score per scan."
+    },
+    {
+      "name": "admin",
+      "description": "Internal ops (`super_admin` only): tenants, memberships, cross-tenant scans, queue depth overview."
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:8090",
+      "description": "Local dev"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Staging / production"
+    }
+  ]
+}

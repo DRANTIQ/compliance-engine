@@ -148,6 +148,67 @@ class FindingsRepository:
         rows = await self._db.fetch(tenant_id, query, *params)
         return [self._public(row) for row in rows]
 
+    async def list_failures(
+        self,
+        tenant_id: UUID,
+        scan_id: UUID,
+        *,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        return await self.list_findings(
+            tenant_id,
+            scan_id,
+            result="fail",
+            limit=limit,
+            offset=0,
+        )
+
+    async def list_by_resource(
+        self,
+        tenant_id: UUID,
+        scan_id: UUID,
+        resource_id: str,
+        *,
+        result: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        clauses = ["tenant_id = $1", "scan_id = $2", "resource_id = $3"]
+        params: list[Any] = [tenant_id, scan_id, resource_id]
+        idx = 4
+        if result:
+            clauses.append(f"result = ${idx}")
+            params.append(result)
+            idx += 1
+        params.append(limit)
+        query = f"""
+            SELECT id, policy_id, resource_id, resource_type, result, status, severity,
+                   title, description, evidence, evaluated_at, created_at
+            FROM findings.findings
+            WHERE {" AND ".join(clauses)}
+            ORDER BY severity, policy_id
+            LIMIT ${idx}
+        """
+        rows = await self._db.fetch(tenant_id, query, *params)
+        return [self._public(row) for row in rows]
+
+    async def list_by_policy(
+        self,
+        tenant_id: UUID,
+        scan_id: UUID,
+        policy_id: str,
+        *,
+        result: str = "fail",
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        return await self.list_findings(
+            tenant_id,
+            scan_id,
+            result=result,
+            policy_id=policy_id,
+            limit=limit,
+            offset=0,
+        )
+
     async def get_finding(
         self,
         tenant_id: UUID,

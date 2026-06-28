@@ -6,7 +6,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from platform_backend.api.routes import admin, assets, compliance, findings, health, integrations, me, scans
+from platform_backend.api.openapi import API_DESCRIPTION, configure_openapi
+from platform_backend.api.routes import (
+    admin,
+    assets,
+    compliance,
+    docs_redirect,
+    findings,
+    health,
+    integrations,
+    me,
+    policies,
+    scans,
+)
 from platform_backend.config.settings import get_settings
 from platform_backend.db.pool import DatabasePool
 from platform_backend.queue.redis_client import close_redis_client, create_redis_client
@@ -48,9 +60,19 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Platform V2 API",
         version="0.5.0",
-        description="Phase 4 prep — identity abstraction, inventory, policy, findings, compliance API",
+        description=API_DESCRIPTION,
         lifespan=lifespan,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+        swagger_ui_parameters={
+            "docExpansion": "list",
+            "filter": True,
+            "tryItOutEnabled": True,
+            "persistAuthorization": True,
+        },
     )
+    configure_openapi(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -65,12 +87,14 @@ def create_app() -> FastAPI:
             "Authorization",
         ],
     )
+    app.include_router(docs_redirect.router)
     app.include_router(health.router)
     app.include_router(me.router)
     app.include_router(integrations.router)
     app.include_router(scans.router)
     app.include_router(assets.router)
     app.include_router(findings.router)
+    app.include_router(policies.router)
     app.include_router(compliance.router)
     app.include_router(admin.router)
     return app

@@ -81,5 +81,9 @@ def remediation_for_finding(
 
 def enrich_finding(finding: dict[str, Any]) -> dict[str, Any]:
     out = dict(finding)
-    out["remediation"] = remediation_for_finding(finding)
+    rem = remediation_for_finding(finding)
+    out["remediation"] = rem
+    display = rem.get("headline") or finding.get("title")
+    out["display_title"] = display
+    out["technical_title"] = finding.get("title")
     return out

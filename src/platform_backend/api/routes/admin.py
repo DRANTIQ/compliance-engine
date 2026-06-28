@@ -137,7 +137,13 @@ class AdminScanCreateResponse(BaseModel):
     updated_at: str
 
 
-@router.get("/overview", response_model=AdminOverviewResponse)
+@router.get(
+    "/overview",
+    response_model=AdminOverviewResponse,
+    summary="Platform ops overview",
+    description="Cross-tenant counts: tenants, failed/active scans, Redis queue depths. **super_admin only.** Login as ops@drantiq.local.",
+    responses={200: {"description": "Overview metrics"}, 403: {"description": "Not super_admin"}},
+)
 async def admin_overview(
     _principal: PlatformPrincipal = Depends(require_super_admin),
     repo: AdminRepository = Depends(get_admin_repo),
@@ -161,7 +167,12 @@ async def admin_overview(
     )
 
 
-@router.get("/tenants", response_model=list[TenantResponse])
+@router.get(
+    "/tenants",
+    response_model=list[TenantResponse],
+    summary="List all tenants",
+    description="Cross-tenant list for admin-ui. **super_admin only.**",
+)
 async def list_tenants(
     _principal: PlatformPrincipal = Depends(require_super_admin),
     repo: AdminRepository = Depends(get_admin_repo),
@@ -170,7 +181,14 @@ async def list_tenants(
     return [TenantResponse(**_serialize_row(r)) for r in rows]
 
 
-@router.post("/tenants", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tenants",
+    response_model=TenantResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create tenant",
+    description="Provision a new customer tenant. Slug must be unique lowercase alphanumeric with hyphens.",
+    responses={201: {"description": "Created"}, 409: {"description": "Slug exists"}},
+)
 async def create_tenant(
     body: TenantCreate,
     _principal: PlatformPrincipal = Depends(require_super_admin),
@@ -188,7 +206,13 @@ async def create_tenant(
     return TenantResponse(**_serialize_row(row))
 
 
-@router.get("/tenants/{tenant_id}", response_model=TenantResponse)
+@router.get(
+    "/tenants/{tenant_id}",
+    response_model=TenantResponse,
+    summary="Get tenant",
+    description="Single tenant by UUID.",
+    responses={404: {"description": "Tenant not found"}},
+)
 async def get_tenant(
     tenant_id: UUID,
     _principal: PlatformPrincipal = Depends(require_super_admin),
@@ -200,7 +224,13 @@ async def get_tenant(
     return TenantResponse(**_serialize_row(row))
 
 
-@router.patch("/tenants/{tenant_id}", response_model=TenantResponse)
+@router.patch(
+    "/tenants/{tenant_id}",
+    response_model=TenantResponse,
+    summary="Update tenant",
+    description="Rename or suspend/activate tenant.",
+    responses={400: {"description": "No fields"}, 404: {"description": "Not found"}},
+)
 async def update_tenant(
     tenant_id: UUID,
     body: TenantUpdate,
@@ -215,7 +245,12 @@ async def update_tenant(
     return TenantResponse(**_serialize_row(row))
 
 
-@router.get("/tenants/{tenant_id}/memberships", response_model=list[MembershipResponse])
+@router.get(
+    "/tenants/{tenant_id}/memberships",
+    response_model=list[MembershipResponse],
+    summary="List tenant memberships",
+    description="Supabase/OIDC users linked to tenant with roles.",
+)
 async def list_memberships(
     tenant_id: UUID,
     _principal: PlatformPrincipal = Depends(require_super_admin),
@@ -231,6 +266,11 @@ async def list_memberships(
     "/tenants/{tenant_id}/memberships",
     response_model=MembershipResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Provision user membership",
+    description=(
+        "Link Supabase user (`auth_issuer` + `auth_subject` from JWT) to tenant. "
+        "Issuer is typically `https://<project>.supabase.co/auth/v1`."
+    ),
 )
 async def create_membership(
     tenant_id: UUID,
@@ -250,7 +290,12 @@ async def create_membership(
     return MembershipResponse(**_serialize_row(row))
 
 
-@router.get("/scans", response_model=list[AdminScanResponse])
+@router.get(
+    "/scans",
+    response_model=list[AdminScanResponse],
+    summary="List scans (cross-tenant)",
+    description="Recent scans across all tenants. Filter `?status=failed` for ops triage.",
+)
 async def list_admin_scans(
     status_filter: str | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
@@ -261,7 +306,12 @@ async def list_admin_scans(
     return [AdminScanResponse(**_serialize_row(r)) for r in rows]
 
 
-@router.get("/tenants/{tenant_id}/integrations", response_model=list[AdminIntegrationResponse])
+@router.get(
+    "/tenants/{tenant_id}/integrations",
+    response_model=list[AdminIntegrationResponse],
+    summary="List tenant integrations (admin)",
+    description="Same as tenant-scoped integrations list but callable by super_admin for any tenant.",
+)
 async def list_tenant_integrations(
     tenant_id: UUID,
     _principal: PlatformPrincipal = Depends(require_super_admin),
@@ -274,7 +324,12 @@ async def list_tenant_integrations(
     return [AdminIntegrationResponse(**r) for r in rows]
 
 
-@router.get("/tenants/{tenant_id}/scans", response_model=list[AdminScanResponse])
+@router.get(
+    "/tenants/{tenant_id}/scans",
+    response_model=list[AdminScanResponse],
+    summary="List scans for tenant (admin)",
+    description="Recent scans for one tenant from admin-ui tenant detail.",
+)
 async def list_tenant_scans(
     tenant_id: UUID,
     limit: int = Query(default=20, ge=1, le=100),
@@ -291,6 +346,9 @@ async def list_tenant_scans(
     "/tenants/{tenant_id}/scans",
     response_model=AdminScanCreateResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Trigger scan for tenant (admin)",
+    description="Ops-initiated scan from admin-ui tenant detail. Same pipeline as POST /v1/scans.",
+    responses={201: {"description": "Scan queued"}, 404: {"description": "Tenant or integration not found"}},
 )
 async def create_tenant_scan(
     tenant_id: UUID,

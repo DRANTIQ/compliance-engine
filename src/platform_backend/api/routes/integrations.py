@@ -16,10 +16,14 @@ AWS_ACCOUNT_PATTERN = re.compile(r"^[0-9]{12}$")
 
 
 class AwsIntegrationCreate(BaseModel):
-    account_id: str = Field(min_length=12, max_length=12)
-    role_arn: str = Field(min_length=20)
-    external_id: str = Field(min_length=8)
-    regions: list[str] = Field(min_length=1)
+    account_id: str = Field(min_length=12, max_length=12, description="12-digit AWS account ID", examples=["387957186076"])
+    role_arn: str = Field(
+        min_length=20,
+        description="Customer IAM role ARN the hub account can AssumeRole into",
+        examples=["arn:aws:iam::387957186076:role/SteampipeReadRole"],
+    )
+    external_id: str = Field(min_length=8, description="STS external ID (encrypted at rest, min 8 chars)")
+    regions: list[str] = Field(min_length=1, description="AWS regions to scan", examples=[["us-east-1"]])
 
     @field_validator("account_id")
     @classmethod
@@ -44,12 +48,26 @@ class IntegrationResponse(BaseModel):
     account_id: str
     role_arn: str
     regions: list[str]
-    status: str
+    status: str = Field(description="active | invalid | disabled")
     created_at: str
     updated_at: str
 
 
-@router.post("/aws", response_model=IntegrationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/aws",
+    response_model=IntegrationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register AWS integration",
+    description=(
+        "Connect a customer AWS account via cross-account IAM role + external ID. "
+        "Requires **tenant_admin** or **super_admin**.\n\n"
+        "Customer must trust the hub account and grant read-only permissions. "
+        "`external_id` is stored encrypted and never returned in responses.\n\n"
+        "- **409** — integration already exists for this account\n"
+        "- **400** — validation error (account_id, regions, external_id length)"
+    ),
+    responses={201: {"description": "Integration created"}, 409: {"description": "Duplicate account"}},
+)
 async def register_aws_integration(
     body: AwsIntegrationCreate,
     principal: PlatformPrincipal = Depends(require_write_access),
@@ -76,7 +94,13 @@ async def register_aws_integration(
     return IntegrationResponse(**row)
 
 
-@router.get("", response_model=list[IntegrationResponse])
+@router.get(
+    "",
+    response_model=list[IntegrationResponse],
+    summary="List AWS integrations",
+    description="All integrations for the authenticated tenant. Use `id` when calling **POST /v1/scans**.",
+    responses={200: {"description": "Integration list (may be empty)"}},
+)
 async def list_integrations(
     tenant_id: UUID = Depends(get_tenant_id),
     service: IntegrationService = Depends(get_integration_service),

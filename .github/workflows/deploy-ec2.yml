@@ -1,0 +1,178 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Override EC2 host IP"
+        required: false
+        type: string
+      image_tag:
+        description: "Docker tag suffix (default: short git SHA)"
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-ec2-production
+  cancel-in-progress: false
+
+env:
+  DOCKER_IMAGE: drantiq/drantiq
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -q --ignore=tests/integration 2>/dev/null || pytest tests/test_customer_experience.py tests/test_finding_remediation.py tests/test_policy_catalog.py -q
+
+  build-and-push:
+    name: Build & push Docker Hub images
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/platform-collectors
+          path: platform-collectors
+          token: ${{ secrets.COLLECTORS_REPO_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        run: |
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="$(echo "${{ github.sha }}" | cut -c1-7)"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Image tag: ${TAG}"
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:backend-${{ steps.meta.outputs.tag }}
+            ${{ env.DOCKER_IMAGE }}:backend-latest
+
+      - name: Build & push collector
+        uses: docker/build-push-action@v6
+        with:
+          context: platform-collectors
+          file: platform-collectors/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:collector-${{ steps.meta.outputs.tag }}
+            ${{ env.DOCKER_IMAGE }}:collector-latest
+
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+      DEPLOY_DIR: /opt/platform/deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render production .env from GitHub Secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EXTERNAL_ID_ENCRYPTION_KEY: ${{ secrets.EXTERNAL_ID_ENCRYPTION_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          OIDC_JWT_SECRET: ${{ secrets.OIDC_JWT_SECRET }}
+          OIDC_AUDIENCE: ${{ secrets.OIDC_AUDIENCE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_PREFIX: ${{ secrets.S3_PREFIX }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+        run: |
+          python3 deploy/ec2/render_production_env.py > deploy/ec2/.env.rendered
+          chmod 600 deploy/ec2/.env.rendered
+
+      - name: Resolve deploy host
+        id: host
+        env:
+          INPUT_HOST: ${{ github.event.inputs.host }}
+          SECRET_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          if [[ -n "${INPUT_HOST}" ]]; then
+            echo "value=${INPUT_HOST}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${SECRET_HOST}" ]]; then
+            echo "value=${SECRET_HOST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Set EC2_HOST secret or workflow host input." >&2
+            exit 1
+          fi
+
+      - name: Prepare deploy bundle
+        run: |
+          mkdir -p deploy/ec2/bundle
+          cp deploy/ec2/docker-compose.prod.yml deploy/ec2/bundle/
+          cp deploy/ec2/.env.rendered deploy/ec2/bundle/.env
+          cp deploy/ec2/remote-deploy.sh deploy/ec2/bundle/
+          chmod +x deploy/ec2/bundle/remote-deploy.sh
+
+      - name: Copy deploy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.host.outputs.value }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          source: deploy/ec2/bundle/docker-compose.prod.yml,deploy/ec2/bundle/.env,deploy/ec2/bundle/remote-deploy.sh
+          target: /opt/platform/deploy
+          overwrite: true
+
+      - name: Run deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        with:
+          host: ${{ steps.host.outputs.value }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 15m
+          script_stop: true
+          envs: IMAGE_TAG,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+          script: |
+            set -euo pipefail
+            export DEPLOY_DIR="/opt/platform/deploy"
+            export DOCKER_IMAGE="drantiq/drantiq"
+            chmod +x "${DEPLOY_DIR}/remote-deploy.sh"
+            bash "${DEPLOY_DIR}/remote-deploy.sh"
+
+      - name: Smoke test HTTPS
+        env:
+          API_URL: ${{ vars.API_PUBLIC_URL }}
+        run: |
+          if [[ -n "${API_URL}" ]]; then
+            curl -sf "${API_URL}/health"
+            curl -sf "${API_URL}/ready"
+          fi

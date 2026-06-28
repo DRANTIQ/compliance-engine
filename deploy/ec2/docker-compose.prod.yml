@@ -1,0 +1,77 @@
+# Production EC2 — pull pre-built images from Docker Hub (no build on server).
+# Images: drantiq/drantiq:backend-<tag>  drantiq/drantiq:collector-<tag>
+#
+# Required env at runtime (via .env or shell):
+#   BACKEND_IMAGE    e.g. drantiq/drantiq:backend-abc1234
+#   COLLECTOR_IMAGE  e.g. drantiq/drantiq:collector-abc1234
+
+name: platform-v2
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [platform]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  platform-api:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [platform]
+    command: ["python", "scripts/run_api.py"]
+
+  ingest-worker:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [platform]
+    command: ["python", "scripts/run_ingest_worker.py"]
+
+  policy-worker:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [platform]
+    command: ["python", "scripts/run_policy_worker.py"]
+
+  aws-collector:
+    image: ${COLLECTOR_IMAGE:?set COLLECTOR_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AWS_EC2_METADATA_DISABLED: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [platform]
+
+networks:
+  platform:
+    driver: bridge

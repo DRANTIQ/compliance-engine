@@ -55,6 +55,9 @@ Requires `platform-db` migrations applied and `EXTERNAL_ID_ENCRYPTION_KEY` set.
 | **platform-collectors** | AWS collector worker |
 | **compliance-engine** | **This repo** — API + ingest |
 
-## Status
+## EC2 production deploy
+
+See **[deploy/ec2/README.md](deploy/ec2/README.md)** — GitHub Actions → Ubuntu EC2 → Docker Compose → nginx + Let's Encrypt (`api.drantiq.ai`).
+
 
 Phase 1 inventory pipeline implemented. Policy/findings = Phase 2 (official plan).

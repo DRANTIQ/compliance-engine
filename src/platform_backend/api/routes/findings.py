@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from platform_backend.api.deps import get_db_pool, get_tenant_id
+from platform_backend.api.schemas.customer_experience import (
+    AffectedResourcesResponse,
+    FindingDetailResponse,
+)
 from platform_backend.db.pool import DatabasePool
+from platform_backend.findings.experience import build_affected_resources, enrich_customer_finding
 from platform_backend.findings.presentation import enrich_finding
 from platform_backend.findings.repository import FindingsRepository
 
@@ -14,28 +19,30 @@ router = APIRouter(prefix="/v1/findings", tags=["findings"])
 
 
 class RemediationResponse(BaseModel):
-    headline: str | None = None
+    headline: str | None = Field(default=None, description="Short risk headline for UI")
     risk_summary: str | None = None
     business_impact: str | None = None
     fix_summary: str | None = None
     estimated_fix_minutes: int | None = None
-    framework_mappings: list[str] = Field(default_factory=list)
-    aws_cli: str | None = None
+    framework_mappings: list[str] = Field(default_factory=list, description="CIS / SOC2 control refs")
+    aws_cli: str | None = Field(default=None, description="Suggested AWS CLI remediation")
     terraform: str | None = None
     cloudformation: str | None = None
 
 
 class FindingResponse(BaseModel):
     id: str
-    policy_id: str
+    policy_id: str = Field(description="Unified policy ID e.g. AWS_S3_001")
     resource_id: str
     resource_type: str
-    result: str
-    status: str
+    result: str = Field(description="pass | fail | error")
+    status: str = Field(description="open | resolved | suppressed")
     severity: str
     title: str
+    display_title: str | None = Field(default=None, description="Customer-facing headline")
+    technical_title: str | None = Field(default=None, description="Policy technical title")
     description: str | None = None
-    evidence: dict
+    evidence: dict = Field(description="Fields that triggered the policy")
     remediation: RemediationResponse
     evaluated_at: str
     created_at: str
@@ -45,14 +52,23 @@ async def get_findings_repo(db: DatabasePool = Depends(get_db_pool)) -> Findings
     return FindingsRepository(db)
 
 
-@router.get("", response_model=list[FindingResponse])
+@router.get(
+    "",
+    response_model=list[FindingResponse],
+    summary="List findings for scan",
+    description=(
+        "Policy evaluation results for a scan. Filter by `result=fail` for issues only. "
+        "Includes remediation copy from policy YAML catalog."
+    ),
+    responses={200: {"description": "Finding list"}},
+)
 async def list_findings(
-    scan_id: UUID = Query(...),
+    scan_id: UUID = Query(..., description="Scan UUID"),
     tenant_id: UUID = Depends(get_tenant_id),
     repo: FindingsRepository = Depends(get_findings_repo),
-    result: str | None = Query(default=None),
-    policy_id: str | None = Query(default=None),
-    status: str | None = Query(default=None),
+    result: str | None = Query(default=None, description="pass | fail | error"),
+    policy_id: str | None = Query(default=None, description="Filter e.g. AWS_S3_001"),
+    status: str | None = Query(default=None, description="open | resolved | suppressed"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[FindingResponse]:
@@ -68,14 +84,46 @@ async def list_findings(
     return [FindingResponse(**enrich_finding(r)) for r in rows]
 
 
-@router.get("/{finding_id}", response_model=FindingResponse)
-async def get_finding(
+@router.get(
+    "/{finding_id}/affected-resources",
+    response_model=AffectedResourcesResponse,
+    summary="Affected resources for finding policy",
+    description=(
+        "All resources that failed the same policy as this finding in the scan. "
+        "Useful when one finding represents a policy with many failing resources."
+    ),
+    responses={200: {"description": "Affected resources"}, 404: {"description": "Finding not found"}},
+)
+async def get_finding_affected_resources(
     finding_id: UUID,
-    scan_id: UUID = Query(...),
+    scan_id: UUID = Query(..., description="Scan UUID"),
     tenant_id: UUID = Depends(get_tenant_id),
     repo: FindingsRepository = Depends(get_findings_repo),
-) -> FindingResponse:
+) -> AffectedResourcesResponse:
     row = await repo.get_finding(tenant_id, scan_id, finding_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="finding not found")
-    return FindingResponse(**enrich_finding(row))
+    rows = await repo.list_by_policy(tenant_id, scan_id, row["policy_id"], result="fail")
+    return AffectedResourcesResponse(**build_affected_resources(rows, row["policy_id"]))
+
+
+@router.get(
+    "/{finding_id}",
+    response_model=FindingDetailResponse,
+    summary="Get finding by ID",
+    description=(
+        "Customer-oriented finding detail: plain-language title, business impact, "
+        "framework mappings, and full remediation (CLI, Terraform). Requires `scan_id`."
+    ),
+    responses={200: {"description": "Finding detail"}, 404: {"description": "Finding not found"}},
+)
+async def get_finding(
+    finding_id: UUID,
+    scan_id: UUID = Query(..., description="Scan UUID"),
+    tenant_id: UUID = Depends(get_tenant_id),
+    repo: FindingsRepository = Depends(get_findings_repo),
+) -> FindingDetailResponse:
+    row = await repo.get_finding(tenant_id, scan_id, finding_id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="finding not found")
+    return FindingDetailResponse(**enrich_customer_finding(row))

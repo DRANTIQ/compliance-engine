@@ -12,11 +12,12 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY contracts ./contracts
+COPY policy ./policy
 
 RUN pip install --upgrade pip && pip install .
 
 USER 10001
 
-EXPOSE 8080
+EXPOSE 8090
 
 CMD ["python", "scripts/run_api.py"]

@@ -1,0 +1,2329 @@
+{
+  "info": {
+    "_postman_id": "p2v2-api-collection-001",
+    "name": "Platform V2 API",
+    "description": "End-to-end Postman collection for Platform V2 (compliance-engine API on :8090).\n\n## Setup\n1. Import collection + `environments/Platform-V2-Local.postman_environment.json`.\n2. Select **Platform V2 \u2014 Local** environment.\n3. Start stack: `scripts/start_platform_v2.ps1`.\n4. Run **E2E Read Workflow** (existing scan) or **E2E Write Workflow** (new scan).\n\n## Auth (default: Supabase)\n1. Run **Authentication > Login (tenant_admin)** \u2014 saves `supabaseToken`\n2. For admin routes, run **Login (super_admin)** \u2014 saves `adminSupabaseToken`\n3. E2E workflows include login steps automatically\n\nSet `authMode=dev_headers` to use X-Tenant-ID + X-Role instead.\n\nOpenAPI: {{baseUrl}}/docs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const authMode = pm.environment.get(\"authMode\") || \"supabase\";",
+          "const url = pm.request.url.toString();",
+          "if (pm.variables.get(\"skipPlatformAuth\") === \"true\") { return; }",
+          "if (url.includes(\"/health\") || url.includes(\"/ready\") || url.includes(\"/auth/v1/token\")) { return; }",
+          "const baseUrl = pm.environment.get('baseUrl');",
+          "if (!baseUrl) { throw new Error(\"Select Platform V2 \u2014 Local environment before sending requests.\"); }",
+          "pm.request.headers.upsert({ key: \"Accept\", value: \"application/json\" });",
+          "if ([\"POST\", \"PUT\", \"PATCH\"].includes(pm.request.method)) {",
+          "  const body = pm.request.body;",
+          "  if (body && body.mode === \"raw\" && body.raw) {",
+          "    pm.request.headers.upsert({ key: \"Content-Type\", value: \"application/json\" });",
+          "  }",
+          "}",
+          "if (authMode === \"supabase\") {",
+          "  const isAdmin = pm.variables.get(\"requestRole\") === \"super_admin\";",
+          "  const tokenKey = isAdmin ? \"adminSupabaseToken\" : \"supabaseToken\";",
+          "  const token = pm.environment.get(tokenKey);",
+          "  if (!token) {",
+          "    throw new Error(\"Run Authentication > Login (\" + (isAdmin ? \"super_admin\" : \"tenant_admin\") + \") first.\");",
+          "  }",
+          "  pm.request.auth = { type: \"bearer\", bearer: [{ key: \"token\", value: token, type: \"string\" }] };",
+          "} else {",
+          "  pm.request.auth = { type: \"noauth\" };",
+          "  const tenantId = pm.environment.get(\"tenantId\");",
+          "  if (!tenantId) throw new Error(\"Set tenantId in environment.\");",
+          "  const role = pm.variables.get(\"requestRole\") || pm.environment.get(\"role\") || \"tenant_admin\";",
+          "  pm.request.headers.upsert({ key: \"X-Tenant-ID\", value: tenantId });",
+          "  pm.request.headers.upsert({ key: \"X-Role\", value: role });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Response time under 30s\", function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(30000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "Supabase email/password login. Tokens saved to environment (expire ~1h \u2014 re-run when 401).",
+      "item": [
+        {
+          "name": "Login (tenant_admin)",
+          "description": "admin@drantiq.local \u2014 platform-ui tenant admin",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"supabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved supabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "Login (super_admin)",
+          "description": "ops@drantiq.local \u2014 admin-ui super admin",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"adminSupabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved adminSupabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "Login (viewer)",
+          "description": "user@drantiq.local \u2014 read-only",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"viewerSupabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved viewerSupabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{viewerEmail}}\",\n  \"password\": \"{{viewerPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "E2E Read Workflow",
+      "description": "Supabase login then full read path. Picks latest completed scan.",
+      "item": [
+        {
+          "name": "0. Login (tenant_admin)",
+          "description": "",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"supabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved supabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "1. Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"healthy\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ready"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"ready\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. GET /v1/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "if (me.tenant_id) pm.environment.set(\"tenantId\", me.tenant_id);",
+                  "console.log(\"role=\", me.role, \"tenant=\", me.tenant_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. List integrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "integrations"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const ints = pm.response.json();",
+                  "if (ints.length) pm.environment.set(\"integrationId\", ints[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. List scans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const scans = pm.response.json();",
+                  "pm.test(\"Has scans\", () => pm.expect(scans.length).to.be.above(0));",
+                  "const completed = scans.find(s => [\"completed\", \"completed_with_errors\"].includes(s.status));",
+                  "const pick = completed || scans[0];",
+                  "pm.environment.set(\"scanId\", pick.id);",
+                  "console.log(\"scanId=\", pick.id, \"status=\", pick.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Get scan detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "7. Scan timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "timeline"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "8. List assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "if (rows.length) pm.environment.set(\"resourceId\", rows[0].resource_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Search assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets/search?scan_id={{scanId}}&q=aws",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "q",
+                  "value": "aws"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "10. List findings (fail)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings?scan_id={{scanId}}&result=fail&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "result",
+                  "value": "fail"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Has findings\", () => pm.expect(rows.length).to.be.above(0));",
+                  "pm.environment.set(\"findingId\", rows[0].id);",
+                  "if (rows[0].policy_id) pm.environment.set(\"policyId\", rows[0].policy_id);",
+                  "if (rows[0].resource_id) pm.environment.set(\"resourceId\", rows[0].resource_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Get finding",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings/{{findingId}}?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings",
+                "{{findingId}}"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "11b. Risk summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/risk-summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "risk-summary"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "11c. Fix priorities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/fix-priorities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "fix-priorities"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "12. Scan compliance summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/compliance?framework_id={{frameworkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "compliance"
+              ],
+              "query": [
+                {
+                  "key": "framework_id",
+                  "value": "{{frameworkId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "13. Compliance framework detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/compliance/frameworks/{{frameworkId}}/scans/{{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "compliance",
+                "frameworks",
+                "{{frameworkId}}",
+                "scans",
+                "{{scanId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "14. Inventory completeness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/inventory-completeness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "inventory-completeness"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "15. Policy coverage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/policy-coverage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "policy-coverage"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "16. Login (super_admin)",
+          "description": "",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"adminSupabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved adminSupabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "17. Admin overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "overview"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "E2E Write Workflow",
+      "description": "Login, trigger scan, poll until complete (~60s real AWS).",
+      "item": [
+        {
+          "name": "0. Login (tenant_admin)",
+          "description": "",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"skipPlatformAuth\", \"true\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"skipPlatformAuth\");",
+                  "pm.test(\"Login OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"supabaseToken\", body.access_token);",
+                  "if (body.refresh_token) { pm.environment.set(\"supabaseRefreshToken\", body.refresh_token); }",
+                  "if (body.user && body.user.id) { pm.environment.set(\"authSubject\", body.user.id); }",
+                  "console.log(\"Saved supabaseToken, expires_in\", body.expires_in);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{supabaseAnonKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "1. Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "2. List integrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "integrations"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const ints = pm.response.json();",
+                  "if (ints.length) pm.environment.set(\"integrationId\", ints[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Create scan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": \"{{integrationId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"scanId\", body.id);",
+                  "console.log(\"Started scan\", body.id, body.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Poll scan status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}"
+              ]
+            },
+            "description": "Re-run until status is completed or failed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = pm.response.json().status;",
+                  "console.log(\"scan status:\", s);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. List findings after scan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings?scan_id={{scanId}}&result=fail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "result",
+                  "value": "fail"
+                }
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "description": "",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "GET /ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ready"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Identity",
+      "description": "",
+      "item": [
+        {
+          "name": "GET /v1/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "description": "",
+      "item": [
+        {
+          "name": "List integrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "integrations"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const ints = pm.response.json();",
+                  "if (ints.length) pm.environment.set(\"integrationId\", ints[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register AWS integration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/integrations/aws",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "integrations",
+                "aws"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": \"{{awsAccountId}}\",\n  \"role_arn\": \"{{awsRoleArn}}\",\n  \"external_id\": \"{{awsExternalId}}\",\n  \"regions\": [\n    \"us-east-1\"\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 or 409\", () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scans",
+      "description": "",
+      "item": [
+        {
+          "name": "List scans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const scans = pm.response.json();",
+                  "pm.test(\"Has scans\", () => pm.expect(scans.length).to.be.above(0));",
+                  "const completed = scans.find(s => [\"completed\", \"completed_with_errors\"].includes(s.status));",
+                  "const pick = completed || scans[0];",
+                  "pm.environment.set(\"scanId\", pick.id);",
+                  "console.log(\"scanId=\", pick.id, \"status=\", pick.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create scan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": \"{{integrationId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"scanId\", body.id);",
+                  "console.log(\"Started scan\", body.id, body.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get scan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Scan timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "timeline"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Scan compliance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/compliance?framework_id={{frameworkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "compliance"
+              ],
+              "query": [
+                {
+                  "key": "framework_id",
+                  "value": "{{frameworkId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Inventory completeness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/inventory-completeness",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "inventory-completeness"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Policy coverage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/policy-coverage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "policy-coverage"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Risk summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/risk-summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "risk-summary"
+              ]
+            },
+            "description": "Customer decision API \u2014 severity counts and top risks."
+          }
+        },
+        {
+          "name": "Fix priorities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/scans/{{scanId}}/fix-priorities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "scans",
+                "{{scanId}}",
+                "fix-priorities"
+              ]
+            },
+            "description": "What to fix first \u2014 sorted by severity and exposure."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assets",
+      "description": "",
+      "item": [
+        {
+          "name": "List assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets?scan_id={{scanId}}&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "if (rows.length) pm.environment.set(\"resourceId\", rows[0].resource_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets/search?scan_id={{scanId}}&q=admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "q",
+                  "value": "admin"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get asset",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets/{{resourceId}}?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets",
+                "{{resourceId}}"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Asset relationships",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets/{{resourceId}}/relationships?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets",
+                "{{resourceId}}",
+                "relationships"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Resource risk",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/assets/{{resourceId}}/risk?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "assets",
+                "{{resourceId}}",
+                "risk"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": "All findings affecting this resource."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Findings",
+      "description": "",
+      "item": [
+        {
+          "name": "List findings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings?scan_id={{scanId}}&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test(\"Has findings\", () => pm.expect(rows.length).to.be.above(0));",
+                  "pm.environment.set(\"findingId\", rows[0].id);",
+                  "if (rows[0].policy_id) pm.environment.set(\"policyId\", rows[0].policy_id);",
+                  "if (rows[0].resource_id) pm.environment.set(\"resourceId\", rows[0].resource_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List failures only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings?scan_id={{scanId}}&result=fail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                },
+                {
+                  "key": "result",
+                  "value": "fail"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get finding",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings/{{findingId}}?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings",
+                "{{findingId}}"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Finding affected resources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/findings/{{findingId}}/affected-resources?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "findings",
+                "{{findingId}}",
+                "affected-resources"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "description": "",
+      "item": [
+        {
+          "name": "Policy affected resources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/policies/{{policyId}}/affected-resources?scan_id={{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "policies",
+                "{{policyId}}",
+                "affected-resources"
+              ],
+              "query": [
+                {
+                  "key": "scan_id",
+                  "value": "{{scanId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compliance",
+      "description": "",
+      "item": [
+        {
+          "name": "List frameworks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/compliance/frameworks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "compliance",
+                "frameworks"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Scan compliance matrix",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/compliance/frameworks/{{frameworkId}}/scans/{{scanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "compliance",
+                "frameworks",
+                "{{frameworkId}}",
+                "scans",
+                "{{scanId}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (super_admin)",
+      "description": "Requires super_admin role.",
+      "item": [
+        {
+          "name": "Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "overview"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get tenant",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create tenant",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Tenant\",\n  \"slug\": \"postman-test-tenant\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"201 or 409\", () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List memberships",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}/memberships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}",
+                "memberships"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create membership",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}/memberships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}",
+                "memberships"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auth_issuer\": \"{{authIssuer}}\",\n  \"auth_subject\": \"00000000-0000-0000-0000-000000000001\",\n  \"email\": \"postman@example.com\",\n  \"role\": \"viewer\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"201 or 409\", () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tenant integrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}",
+                "integrations"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const ints = pm.response.json();",
+                  "if (ints.length) pm.environment.set(\"integrationId\", ints[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tenant scans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}/scans?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}",
+                "scans"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const scans = pm.response.json();",
+                  "pm.test(\"Has scans\", () => pm.expect(scans.length).to.be.above(0));",
+                  "const completed = scans.find(s => [\"completed\", \"completed_with_errors\"].includes(s.status));",
+                  "const pick = completed || scans[0];",
+                  "pm.environment.set(\"scanId\", pick.id);",
+                  "console.log(\"scanId=\", pick.id, \"status=\", pick.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin list all scans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/scans?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "scans"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin list failed scans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/scans?status=failed&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "scans"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "failed"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin create scan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/tenants/{{tenantId}}/scans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "tenants",
+                "{{tenantId}}",
+                "scans"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": \"{{integrationId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"requestRole\", \"super_admin\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.unset(\"requestRole\");",
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set(\"scanId\", body.id);",
+                  "console.log(\"Started scan\", body.id, body.status);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set(\"requestRole\", pm.environment.get(\"adminRole\") || \"super_admin\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.unset(\"requestRole\");"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
