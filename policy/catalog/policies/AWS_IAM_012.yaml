@@ -4,21 +4,33 @@ provider: aws
 resource_type: compute.instance
 provider_type: aws_ec2_instance
 severity: medium
-description: Non-terminated EC2 instances must have an IAM instance profile attached (CIS 2.17).
+description: Non-terminated EC2 instances must have an IAM instance profile attached
+  (CIS 2.17).
 logic:
   type: fail_when
   condition:
     type: compound
     operator: and
     conditions:
-      - type: field_check
-        path: properties.state
-        operator: ne
-        expected: terminated
-      - type: field_check
-        path: properties.iam_instance_profile_arn
-        operator: missing
+    - type: field_check
+      path: properties.state
+      operator: ne
+      expected: terminated
+    - type: field_check
+      path: properties.iam_instance_profile_arn
+      operator: missing
 evidence_fields:
-  - properties.instance_id
-  - properties.state
-  - properties.iam_instance_profile_arn
+- properties.instance_id
+- properties.state
+- properties.iam_instance_profile_arn
+cis_control_id: '2.17'
+remediation:
+  headline: EC2 instances must use IAM instance roles
+  risk_summary: Non-terminated EC2 instances must have an IAM instance profile attached
+    (CIS 2.17).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: EC2 instances must use IAM instance roles'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.17

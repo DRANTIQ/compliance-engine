@@ -13,6 +13,16 @@ logic:
     operator: ne
     expected: ACTIVE
 evidence_fields:
-  - properties.name
-  - properties.status
-  - properties.region
+- properties.name
+- properties.status
+- properties.region
+cis_control_id: '2.19'
+remediation:
+  headline: IAM Access Analyzer disabled
+  risk_summary: Unused access paths may go undetected.
+  business_impact: Over-permissive IAM policies may persist unnoticed.
+  fix_summary: Create and enable IAM Access Analyzer.
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.19
+  - NIST AC-2

@@ -11,13 +11,25 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.log_file_validation_enabled
-        operator: missing
-      - type: field_check
-        path: properties.log_file_validation_enabled
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.log_file_validation_enabled
+      operator: missing
+    - type: field_check
+      path: properties.log_file_validation_enabled
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.name
-  - properties.log_file_validation_enabled
+- properties.name
+- properties.log_file_validation_enabled
+cis_control_id: '4.2'
+remediation:
+  headline: CloudTrail log validation disabled
+  risk_summary: CloudTrail logs cannot be verified for tampering.
+  business_impact: Audit trail integrity cannot be guaranteed.
+  fix_summary: Enable log file validation on the CloudTrail trail.
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 4.2
+  - SOC2 CC7.2
+  - NIST AU-9
+  aws_cli: aws cloudtrail update-trail --name {trail_name} --enable-log-file-validation

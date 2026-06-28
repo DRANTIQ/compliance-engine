@@ -9,12 +9,13 @@ import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 
-from platform_backend.api.deps import get_db_pool, get_redis, get_settings_dep
+from platform_backend.api.deps import get_db_pool, get_integration_service, get_redis, get_scan_service, get_settings_dep
 from platform_backend.config.settings import Settings
 from platform_backend.db.pool import DatabasePool
 from platform_backend.identity.deps import require_super_admin
 from platform_backend.identity.models import PlatformPrincipal
 from platform_backend.platform.repositories.admin import AdminRepository
+from platform_backend.platform.services.scan_service import IntegrationService, ScanService
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 
@@ -106,6 +107,34 @@ class AdminOverviewResponse(BaseModel):
     collect_queue_depth: int
     events_queue_depth: int
     api_status: str
+
+
+class AdminIntegrationResponse(BaseModel):
+    id: str
+    tenant_id: str
+    provider: str
+    account_id: str
+    role_arn: str
+    regions: list[str]
+    status: str
+    created_at: str
+    updated_at: str
+
+
+class AdminScanCreate(BaseModel):
+    integration_id: UUID
+
+
+class AdminScanCreateResponse(BaseModel):
+    id: str
+    tenant_id: str
+    integration_id: str
+    status: str
+    trace_id: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str
+    updated_at: str
 
 
 @router.get("/overview", response_model=AdminOverviewResponse)
@@ -230,3 +259,52 @@ async def list_admin_scans(
 ) -> list[AdminScanResponse]:
     rows = await repo.list_scans(status=status_filter, limit=limit)
     return [AdminScanResponse(**_serialize_row(r)) for r in rows]
+
+
+@router.get("/tenants/{tenant_id}/integrations", response_model=list[AdminIntegrationResponse])
+async def list_tenant_integrations(
+    tenant_id: UUID,
+    _principal: PlatformPrincipal = Depends(require_super_admin),
+    repo: AdminRepository = Depends(get_admin_repo),
+    integration_service: IntegrationService = Depends(get_integration_service),
+) -> list[AdminIntegrationResponse]:
+    if not await repo.get_tenant(tenant_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+    rows = await integration_service.list(tenant_id)
+    return [AdminIntegrationResponse(**r) for r in rows]
+
+
+@router.get("/tenants/{tenant_id}/scans", response_model=list[AdminScanResponse])
+async def list_tenant_scans(
+    tenant_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    _principal: PlatformPrincipal = Depends(require_super_admin),
+    repo: AdminRepository = Depends(get_admin_repo),
+) -> list[AdminScanResponse]:
+    if not await repo.get_tenant(tenant_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+    rows = await repo.list_scans_for_tenant(tenant_id, limit=limit)
+    return [AdminScanResponse(**_serialize_row(r)) for r in rows]
+
+
+@router.post(
+    "/tenants/{tenant_id}/scans",
+    response_model=AdminScanCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_tenant_scan(
+    tenant_id: UUID,
+    body: AdminScanCreate,
+    _principal: PlatformPrincipal = Depends(require_super_admin),
+    repo: AdminRepository = Depends(get_admin_repo),
+    service: ScanService = Depends(get_scan_service),
+) -> AdminScanCreateResponse:
+    if not await repo.get_tenant(tenant_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+    try:
+        row = await service.create_scan(tenant_id, body.integration_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return AdminScanCreateResponse(**row)

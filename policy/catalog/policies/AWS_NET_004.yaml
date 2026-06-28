@@ -4,7 +4,8 @@ provider: aws
 resource_type: network.security_group
 provider_type: aws_ec2_security_group
 severity: high
-description: Security groups must not allow unrestricted SSH/RDP from 0.0.0.0/0 (CIS 6.3).
+description: Security groups must not allow unrestricted SSH/RDP from 0.0.0.0/0 (CIS
+  6.3).
 logic:
   type: fail_when
   condition:
@@ -13,6 +14,18 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.group_id
-  - properties.group_name
-  - properties.allows_unrestricted_admin_ports_ipv4
+- properties.group_id
+- properties.group_name
+- properties.allows_unrestricted_admin_ports_ipv4
+cis_control_id: '6.3'
+remediation:
+  headline: Security groups must not allow unrestricted admin ports (IPv4)
+  risk_summary: Security groups must not allow unrestricted SSH/RDP from 0.0.0.0/0
+    (CIS 6.3).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Security groups must not allow unrestricted admin
+    ports (IPv4)'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 6.3

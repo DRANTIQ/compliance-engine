@@ -4,28 +4,40 @@ provider: aws
 resource_type: identity.account
 provider_type: aws_iam_account
 severity: critical
-description: Ensure MFA is enabled on the root user when a root password exists (CIS 2.4).
+description: Ensure MFA is enabled on the root user when a root password exists (CIS
+  2.4).
 logic:
   type: fail_when
   condition:
     type: compound
     operator: and
     conditions:
+    - type: field_check
+      path: properties.root_password_present
+      operator: eq
+      expected: true
+    - type: compound
+      operator: or
+      conditions:
       - type: field_check
-        path: properties.root_password_present
+        path: properties.root_mfa_enabled
+        operator: missing
+      - type: field_check
+        path: properties.root_mfa_enabled
         operator: eq
-        expected: true
-      - type: compound
-        operator: or
-        conditions:
-          - type: field_check
-            path: properties.root_mfa_enabled
-            operator: missing
-          - type: field_check
-            path: properties.root_mfa_enabled
-            operator: eq
-            expected: false
+        expected: false
 evidence_fields:
-  - properties.account_id
-  - properties.root_password_present
-  - properties.root_mfa_enabled
+- properties.account_id
+- properties.root_password_present
+- properties.root_mfa_enabled
+cis_control_id: '2.4'
+remediation:
+  headline: Root user must have MFA enabled
+  risk_summary: Ensure MFA is enabled on the root user when a root password exists
+    (CIS 2.4).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Root user must have MFA enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 2.4

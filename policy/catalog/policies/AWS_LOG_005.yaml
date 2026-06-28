@@ -11,13 +11,23 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.flow_logs_enabled
-        operator: missing
-      - type: field_check
-        path: properties.flow_logs_enabled
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.flow_logs_enabled
+      operator: missing
+    - type: field_check
+      path: properties.flow_logs_enabled
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.vpc_id
-  - properties.flow_logs_enabled
+- properties.vpc_id
+- properties.flow_logs_enabled
+cis_control_id: '4.7'
+remediation:
+  headline: VPC flow logging disabled
+  risk_summary: Network traffic is not logged — blind to lateral movement.
+  business_impact: Attackers could move undetected inside your network.
+  fix_summary: Enable VPC Flow Logs on the VPC.
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 4.7
+  - NIST AU-12

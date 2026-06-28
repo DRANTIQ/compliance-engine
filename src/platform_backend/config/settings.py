@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     use_local_storage: bool = Field(default=False, alias="USE_LOCAL_STORAGE")
     local_storage_path: str = Field(default="./local/snapshots", alias="LOCAL_STORAGE_PATH")
 
+    aws_access_key_id: str = Field(default="", alias="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str = Field(default="", alias="AWS_SECRET_ACCESS_KEY")
+    aws_session_token: str = Field(default="", alias="AWS_SESSION_TOKEN")
+    aws_default_region: str = Field(default="us-east-1", alias="AWS_DEFAULT_REGION")
+
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8090, alias="API_PORT")
     cors_origins: str = Field(

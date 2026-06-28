@@ -4,20 +4,32 @@ provider: aws
 resource_type: identity.account
 provider_type: aws_iam_account_password_policy
 severity: medium
-description: IAM password policy must require a minimum length of at least 14 characters (CIS 2.7).
+description: IAM password policy must require a minimum length of at least 14 characters
+  (CIS 2.7).
 logic:
   type: fail_when
   condition:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.minimum_password_length
-        operator: missing
-      - type: field_check
-        path: properties.minimum_password_length
-        operator: lt
-        expected: 14
+    - type: field_check
+      path: properties.minimum_password_length
+      operator: missing
+    - type: field_check
+      path: properties.minimum_password_length
+      operator: lt
+      expected: 14
 evidence_fields:
-  - properties.account_id
-  - properties.minimum_password_length
+- properties.account_id
+- properties.minimum_password_length
+cis_control_id: '2.7'
+remediation:
+  headline: IAM password policy minimum length
+  risk_summary: IAM password policy must require a minimum length of at least 14 characters
+    (CIS 2.7).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM password policy minimum length'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.7

@@ -6,10 +6,10 @@ from typing import Any
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
-import boto3
 from botocore.exceptions import ClientError
 
 from platform_backend.config.settings import Settings, get_settings
+from platform_backend.storage.aws import s3_client
 
 
 def _uri_to_path(uri: str) -> Path:
@@ -22,7 +22,7 @@ class SnapshotReader:
         self._settings = settings or get_settings()
         self._s3 = None
         if not self._settings.use_local_storage:
-            self._s3 = boto3.client("s3", region_name=self._settings.s3_region)
+            self._s3 = s3_client(self._settings)
 
     def read_json(self, uri: str) -> dict[str, Any]:
         if uri.startswith("file:"):

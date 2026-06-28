@@ -11,13 +11,24 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.status_recording
-        operator: missing
-      - type: field_check
-        path: properties.status_recording
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.status_recording
+      operator: missing
+    - type: field_check
+      path: properties.status_recording
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.name
-  - properties.status_recording
+- properties.name
+- properties.status_recording
+cis_control_id: '4.3'
+remediation:
+  headline: AWS Config disabled
+  risk_summary: Configuration changes are not being recorded for audit.
+  business_impact: You cannot prove who changed what in your AWS account.
+  fix_summary: Enable the AWS Config recorder and delivery channel in the region.
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 4.3
+  - SOC2 CC8.1
+  - NIST CM-2

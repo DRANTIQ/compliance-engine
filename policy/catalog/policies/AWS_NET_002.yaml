@@ -4,7 +4,8 @@ provider: aws
 resource_type: network.security_group
 provider_type: aws_ec2_security_group
 severity: medium
-description: Security groups must not allow unrestricted CIFS (port 445) access (CIS 6.1.2).
+description: Security groups must not allow unrestricted CIFS (port 445) access (CIS
+  6.1.2).
 logic:
   type: fail_when
   condition:
@@ -13,6 +14,17 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.group_id
-  - properties.group_name
-  - properties.allows_unrestricted_cifs
+- properties.group_id
+- properties.group_name
+- properties.allows_unrestricted_cifs
+cis_control_id: 6.1.2
+remediation:
+  headline: CIFS access must be restricted
+  risk_summary: Security groups must not allow unrestricted CIFS (port 445) access
+    (CIS 6.1.2).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: CIFS access must be restricted'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 6.1.2

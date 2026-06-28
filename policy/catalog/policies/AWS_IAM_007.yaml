@@ -13,5 +13,15 @@ logic:
     operator: gt
     expected: 1
 evidence_fields:
-  - properties.user_name
-  - properties.active_access_key_count
+- properties.user_name
+- properties.active_access_key_count
+cis_control_id: '2.12'
+remediation:
+  headline: IAM user must have at most one active access key
+  risk_summary: IAM users must not have more than one active access key (CIS 2.12).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM user must have at most one active access key'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.12

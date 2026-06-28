@@ -11,13 +11,24 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.key_rotation_enabled
-        operator: missing
-      - type: field_check
-        path: properties.key_rotation_enabled
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.key_rotation_enabled
+      operator: missing
+    - type: field_check
+      path: properties.key_rotation_enabled
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.key_id
-  - properties.key_rotation_enabled
+- properties.key_id
+- properties.key_rotation_enabled
+cis_control_id: '4.6'
+remediation:
+  headline: KMS key rotation must be enabled
+  risk_summary: Customer-managed KMS keys must have automatic rotation enabled (CIS
+    4.6).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: KMS key rotation must be enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 4.6

@@ -11,15 +11,25 @@ logic:
     type: compound
     operator: and
     conditions:
-      - type: field_check
-        path: properties.state
-        operator: ne
-        expected: terminated
-      - type: field_check
-        path: properties.http_tokens
-        operator: ne
-        expected: required
+    - type: field_check
+      path: properties.state
+      operator: ne
+      expected: terminated
+    - type: field_check
+      path: properties.http_tokens
+      operator: ne
+      expected: required
 evidence_fields:
-  - properties.instance_id
-  - properties.state
-  - properties.http_tokens
+- properties.instance_id
+- properties.state
+- properties.http_tokens
+cis_control_id: '6.7'
+remediation:
+  headline: EC2 instances must require IMDSv2
+  risk_summary: EC2 instances must require IMDSv2 (HttpTokens=required) (CIS 6.7).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: EC2 instances must require IMDSv2'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 6.7

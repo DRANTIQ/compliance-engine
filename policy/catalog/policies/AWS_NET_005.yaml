@@ -13,6 +13,18 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.group_id
-  - properties.group_name
-  - properties.allows_unrestricted_admin_ports_ipv6
+- properties.group_id
+- properties.group_name
+- properties.allows_unrestricted_admin_ports_ipv6
+cis_control_id: '6.4'
+remediation:
+  headline: Security groups must not allow unrestricted admin ports (IPv6)
+  risk_summary: Security groups must not allow unrestricted SSH/RDP from ::/0 (CIS
+    6.4).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Security groups must not allow unrestricted admin
+    ports (IPv6)'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 6.4

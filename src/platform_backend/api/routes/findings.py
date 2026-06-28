@@ -3,13 +3,26 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from platform_backend.api.deps import get_db_pool, get_tenant_id
 from platform_backend.db.pool import DatabasePool
+from platform_backend.findings.presentation import enrich_finding
 from platform_backend.findings.repository import FindingsRepository
 
 router = APIRouter(prefix="/v1/findings", tags=["findings"])
+
+
+class RemediationResponse(BaseModel):
+    headline: str | None = None
+    risk_summary: str | None = None
+    business_impact: str | None = None
+    fix_summary: str | None = None
+    estimated_fix_minutes: int | None = None
+    framework_mappings: list[str] = Field(default_factory=list)
+    aws_cli: str | None = None
+    terraform: str | None = None
+    cloudformation: str | None = None
 
 
 class FindingResponse(BaseModel):
@@ -23,6 +36,7 @@ class FindingResponse(BaseModel):
     title: str
     description: str | None = None
     evidence: dict
+    remediation: RemediationResponse
     evaluated_at: str
     created_at: str
 
@@ -51,7 +65,7 @@ async def list_findings(
         limit=limit,
         offset=offset,
     )
-    return [FindingResponse(**r) for r in rows]
+    return [FindingResponse(**enrich_finding(r)) for r in rows]
 
 
 @router.get("/{finding_id}", response_model=FindingResponse)
@@ -64,4 +78,4 @@ async def get_finding(
     row = await repo.get_finding(tenant_id, scan_id, finding_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="finding not found")
-    return FindingResponse(**row)
+    return FindingResponse(**enrich_finding(row))

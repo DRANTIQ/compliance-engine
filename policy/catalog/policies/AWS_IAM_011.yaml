@@ -11,13 +11,22 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.support_role_exists
-        operator: missing
-      - type: field_check
-        path: properties.support_role_exists
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.support_role_exists
+      operator: missing
+    - type: field_check
+      path: properties.support_role_exists
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.account_id
-  - properties.support_role_exists
+- properties.account_id
+- properties.support_role_exists
+cis_control_id: '2.16'
+remediation:
+  headline: AWS Support role missing
+  risk_summary: AWS Support case management role is not configured.
+  business_impact: Incident response with AWS Support may be delayed.
+  fix_summary: Create the AWS Support access IAM role.
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 2.16

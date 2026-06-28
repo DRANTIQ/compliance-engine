@@ -13,5 +13,15 @@ logic:
     operator: eq
     expected: false
 evidence_fields:
-  - properties.db_instance_identifier
-  - properties.auto_minor_version_upgrade
+- properties.db_instance_identifier
+- properties.auto_minor_version_upgrade
+cis_control_id: 3.2.2
+remediation:
+  headline: RDS auto minor version upgrade must be enabled
+  risk_summary: RDS DB instances must enable auto minor version upgrade (CIS 3.2.2).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: RDS auto minor version upgrade must be enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 3.2.2

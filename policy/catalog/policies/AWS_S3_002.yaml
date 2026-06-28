@@ -11,22 +11,42 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.public_access_block.BlockPublicAcls
-        operator: ne
-        expected: true
-      - type: field_check
-        path: properties.public_access_block.BlockPublicPolicy
-        operator: ne
-        expected: true
-      - type: field_check
-        path: properties.public_access_block.IgnorePublicAcls
-        operator: ne
-        expected: true
-      - type: field_check
-        path: properties.public_access_block.RestrictPublicBuckets
-        operator: ne
-        expected: true
+    - type: field_check
+      path: properties.public_access_block.BlockPublicAcls
+      operator: ne
+      expected: true
+    - type: field_check
+      path: properties.public_access_block.BlockPublicPolicy
+      operator: ne
+      expected: true
+    - type: field_check
+      path: properties.public_access_block.IgnorePublicAcls
+      operator: ne
+      expected: true
+    - type: field_check
+      path: properties.public_access_block.RestrictPublicBuckets
+      operator: ne
+      expected: true
 evidence_fields:
-  - properties.name
-  - properties.public_access_block
+- properties.name
+- properties.public_access_block
+cis_control_id: 3.1.4
+remediation:
+  headline: Public S3 bucket detected
+  risk_summary: Anyone on the internet may be able to access data in this bucket.
+  business_impact: Sensitive data could be exposed to the public internet.
+  fix_summary: Enable S3 Block Public Access on the bucket.
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - CIS 3.1.4
+  - SOC2 CC6.6
+  - NIST AC-3
+  aws_cli: aws s3api put-public-access-block --bucket {bucket_name} --public-access-block-configuration
+    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+  terraform: "resource \"aws_s3_bucket_public_access_block\" \"this\" {\n  bucket\
+    \ = \"{bucket_name}\"\n  block_public_acls       = true\n  block_public_policy\
+    \     = true\n  ignore_public_acls      = true\n  restrict_public_buckets = true\n\
+    }"
+  cloudformation: "Type: AWS::S3::BucketPublicAccessBlock\nProperties:\n  Bucket:\
+    \ {bucket_name}\n  BlockPublicAcls: true\n  BlockPublicPolicy: true\n  IgnorePublicAcls:\
+    \ true\n  RestrictPublicBuckets: true"

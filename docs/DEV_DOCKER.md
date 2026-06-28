@@ -4,11 +4,12 @@
 
 ```powershell
 cd compliance-engine
+cp .env.example .env   # if not already configured
+cd ..\platform-collectors
+cp .env.example .env   # COLLECTOR_MOCK=true for mock dev
 
-# Stop stale duplicate workers (fixes port + ingest errors)
+cd ..\compliance-engine
 .\scripts\stop_platform_v2.ps1
-
-# Start API + ingest + mock collector
 .\scripts\start_platform_v2.ps1
 
 # Swagger: http://localhost:8090/docs

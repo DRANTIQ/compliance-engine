@@ -7,7 +7,6 @@ import argparse
 import asyncio
 import os
 import sys
-from pathlib import Path
 from uuid import UUID
 
 import asyncpg
@@ -22,14 +21,11 @@ async def main() -> int:
     parser.add_argument("--role", default="tenant_admin", choices=["tenant_admin", "viewer", "super_admin"])
     args = parser.parse_args()
 
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+    from load_repo_dotenv import load_repo_dotenv
+
+    load_repo_dotenv()
     database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        env_path = Path(__file__).resolve().parents[2] / "platform-db" / ".env"
-        if env_path.is_file():
-            for line in env_path.read_text(encoding="utf-8").splitlines():
-                if line.startswith("DATABASE_URL="):
-                    database_url = line.split("=", 1)[1].strip().strip('"')
-                    break
     if not database_url:
         print("DATABASE_URL is required", file=sys.stderr)
         return 1

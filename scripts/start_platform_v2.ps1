@@ -1,12 +1,16 @@
-# Start Platform V2 dev stack: API + ingest worker + collector (mock/local).
+# Start Platform V2 dev stack: API + ingest + policy + collector.
+# Config: compliance-engine/.env and platform-collectors/.env only.
 param(
-    [int]$ApiPort = 8090
+    [int]$ApiPort = 0
 )
 
 $ErrorActionPreference = "Stop"
 $backendRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $collectorsRoot = Join-Path (Split-Path -Parent $backendRoot) "platform-collectors"
-$steampipeEnv = Join-Path (Split-Path -Parent $backendRoot) "steampipe\.env"
+$backendEnv = Join-Path $backendRoot ".env"
+$collectorsEnv = Join-Path $collectorsRoot ".env"
+
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "import_dotenv.ps1")
 
 if (-not (Test-Path "$backendRoot\.venv\Scripts\python.exe")) {
     Write-Error "Run: cd compliance-engine; python -m venv .venv; pip install -e .[dev]"
@@ -14,30 +18,28 @@ if (-not (Test-Path "$backendRoot\.venv\Scripts\python.exe")) {
 if (-not (Test-Path "$collectorsRoot\.venv\Scripts\python.exe")) {
     Write-Error "Run: cd platform-collectors; python -m venv .venv; pip install -e ."
 }
+if (-not (Import-DotEnv $backendEnv)) {
+    Write-Error "Missing compliance-engine\.env — copy from .env.example"
+}
+if (-not (Import-DotEnv $collectorsEnv)) {
+    Write-Warning "Missing platform-collectors\.env — copy from .env.example (collector uses pydantic defaults)"
+}
+
+if ($ApiPort -gt 0) {
+    $env:API_PORT = "$ApiPort"
+} elseif (-not $env:API_PORT) {
+    $env:API_PORT = "8090"
+}
+
+if (-not $env:LOCAL_STORAGE_PATH) {
+    $env:LOCAL_STORAGE_PATH = Join-Path $backendRoot "local\snapshots"
+}
 
 & "$backendRoot\scripts\stop_platform_v2.ps1"
 
-if (Test-Path $steampipeEnv) {
-    $dbLine = Get-Content $steampipeEnv | Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1
-    if ($dbLine) {
-        $url = ($dbLine -replace '^DATABASE_URL=', '').Trim()
-        if ($url -notmatch 'sslmode=') { $url += '?sslmode=require' }
-        $env:DATABASE_URL = $url
-    }
-}
-
-$env:REDIS_URL = "redis://localhost:6379/0"
-$env:EXTERNAL_ID_ENCRYPTION_KEY = "dev-local-key-change-before-prod"
-$env:USE_LOCAL_STORAGE = "true"
-$env:LOCAL_STORAGE_PATH = Join-Path $backendRoot "local\snapshots"
-$env:COLLECTOR_MOCK = "true"
-$env:API_PORT = "$ApiPort"
-$env:PLATFORM_EVENTS_KEY = "platform:events"
-$env:COLLECT_QUEUE_KEY = "platform:collect.aws"
-$env:POLICY_QUEUE_KEY = "platform:policy.evaluate"
-
 $pythonBackend = "$backendRoot\.venv\Scripts\python.exe"
 $pythonCollector = "$collectorsRoot\.venv\Scripts\python.exe"
+$mockMode = if ($env:COLLECTOR_MOCK -eq "false") { "real AWS" } else { "mock" }
 
 Write-Host "Starting ingest worker..."
 Start-Process -FilePath $pythonBackend -ArgumentList "scripts/run_ingest_worker.py" -WorkingDirectory $backendRoot -WindowStyle Minimized
@@ -49,24 +51,25 @@ Start-Process -FilePath $pythonBackend -ArgumentList "scripts/run_policy_worker.
 
 Start-Sleep -Seconds 2
 
-Write-Host "Starting collector worker (mock)..."
+Write-Host "Starting collector worker ($mockMode)..."
 Start-Process -FilePath $pythonCollector -ArgumentList "scripts/run_collector_worker.py" -WorkingDirectory $collectorsRoot -WindowStyle Minimized
 
 Start-Sleep -Seconds 2
 
-Write-Host "Starting API on port $ApiPort..."
+Write-Host "Starting API on port $($env:API_PORT)..."
 Start-Process -FilePath $pythonBackend -ArgumentList "scripts/run_api.py" -WorkingDirectory $backendRoot -WindowStyle Minimized
 
 Start-Sleep -Seconds 3
 
+$port = $env:API_PORT
 try {
-    $health = Invoke-RestMethod -Uri "http://localhost:$ApiPort/health" -TimeoutSec 10
-    $ready = Invoke-RestMethod -Uri "http://localhost:$ApiPort/ready" -TimeoutSec 10
+    $health = Invoke-RestMethod -Uri "http://localhost:$port/health" -TimeoutSec 10
+    $ready = Invoke-RestMethod -Uri "http://localhost:$port/ready" -TimeoutSec 10
     Write-Host "API health: $($health.status)"
     Write-Host "API ready: $($ready.status)"
     Write-Host ""
-    Write-Host "Swagger: http://localhost:$ApiPort/docs"
-    Write-Host "Use X-Tenant-ID header (seed via: python scripts/seed_dev_tenant.py)"
+    Write-Host "Swagger: http://localhost:$port/docs"
+    Write-Host "Collector: COLLECTOR_MOCK=$($env:COLLECTOR_MOCK) (set in platform-collectors/.env)"
 } catch {
-    Write-Warning "API not responding yet on port $ApiPort. Check python processes in Task Manager."
+    Write-Warning "API not responding yet on port $port. Check python processes in Task Manager."
 }

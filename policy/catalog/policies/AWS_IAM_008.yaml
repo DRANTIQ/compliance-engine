@@ -13,5 +13,15 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.user_name
-  - properties.has_stale_active_access_key
+- properties.user_name
+- properties.has_stale_active_access_key
+cis_control_id: '2.13'
+remediation:
+  headline: IAM access keys must be rotated within 90 days
+  risk_summary: Active IAM access keys older than 90 days must be rotated (CIS 2.13).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM access keys must be rotated within 90 days'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.13

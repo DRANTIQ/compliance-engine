@@ -4,23 +4,35 @@ provider: aws
 resource_type: network.security_group
 provider_type: aws_ec2_security_group
 severity: medium
-description: Default VPC security groups must not allow unrestricted inbound traffic (CIS 6.5).
+description: Default VPC security groups must not allow unrestricted inbound traffic
+  (CIS 6.5).
 logic:
   type: fail_when
   condition:
     type: compound
     operator: and
     conditions:
-      - type: field_check
-        path: properties.is_default
-        operator: eq
-        expected: true
-      - type: field_check
-        path: properties.default_allows_unrestricted_ingress
-        operator: eq
-        expected: true
+    - type: field_check
+      path: properties.is_default
+      operator: eq
+      expected: true
+    - type: field_check
+      path: properties.default_allows_unrestricted_ingress
+      operator: eq
+      expected: true
 evidence_fields:
-  - properties.group_id
-  - properties.group_name
-  - properties.is_default
-  - properties.default_allows_unrestricted_ingress
+- properties.group_id
+- properties.group_name
+- properties.is_default
+- properties.default_allows_unrestricted_ingress
+cis_control_id: '6.5'
+remediation:
+  headline: Default security group must restrict all traffic
+  risk_summary: Default VPC security groups must not allow unrestricted inbound traffic
+    (CIS 6.5).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Default security group must restrict all traffic'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 6.5

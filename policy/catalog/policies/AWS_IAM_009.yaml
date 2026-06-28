@@ -4,7 +4,8 @@ provider: aws
 resource_type: identity.user
 provider_type: aws_iam_user
 severity: medium
-description: IAM users must not have directly attached policies without group membership (CIS 2.14).
+description: IAM users must not have directly attached policies without group membership
+  (CIS 2.14).
 logic:
   type: fail_when
   condition:
@@ -13,7 +14,18 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.user_name
-  - properties.has_direct_attached_policies_without_groups
-  - properties.group_count
-  - properties.attached_policy_count
+- properties.user_name
+- properties.has_direct_attached_policies_without_groups
+- properties.group_count
+- properties.attached_policy_count
+cis_control_id: '2.14'
+remediation:
+  headline: IAM users must receive permissions via groups
+  risk_summary: IAM users must not have directly attached policies without group membership
+    (CIS 2.14).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM users must receive permissions via groups'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.14

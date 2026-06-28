@@ -11,13 +11,23 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.enabled
-        operator: missing
-      - type: field_check
-        path: properties.enabled
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.enabled
+      operator: missing
+    - type: field_check
+      path: properties.enabled
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.region
-  - properties.enabled
+- properties.region
+- properties.enabled
+cis_control_id: '5.16'
+remediation:
+  headline: AWS Security Hub disabled
+  risk_summary: Centralized security findings are not aggregated.
+  business_impact: Security gaps may go unnoticed across services.
+  fix_summary: Enable AWS Security Hub in the account and region.
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 5.16
+  - NIST SI-4

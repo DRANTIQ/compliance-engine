@@ -13,5 +13,15 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.db_instance_identifier
-  - properties.publicly_accessible
+- properties.db_instance_identifier
+- properties.publicly_accessible
+cis_control_id: 3.2.3
+remediation:
+  headline: RDS instances must not be publicly accessible
+  risk_summary: RDS DB instances must not be publicly accessible (CIS 3.2.3).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: RDS instances must not be publicly accessible'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 3.2.3

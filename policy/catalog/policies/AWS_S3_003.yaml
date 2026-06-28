@@ -11,13 +11,22 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.cloudtrail_s3_write_logging
-        operator: missing
-      - type: field_check
-        path: properties.cloudtrail_s3_write_logging
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.cloudtrail_s3_write_logging
+      operator: missing
+    - type: field_check
+      path: properties.cloudtrail_s3_write_logging
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.name
-  - properties.cloudtrail_s3_write_logging
+- properties.name
+- properties.cloudtrail_s3_write_logging
+cis_control_id: '4.8'
+remediation:
+  headline: S3 write events not logged
+  risk_summary: Object uploads and modifications may go unrecorded.
+  business_impact: You cannot investigate unauthorized data changes.
+  fix_summary: Enable S3 server access logging or CloudTrail data events for the bucket.
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - CIS 4.8

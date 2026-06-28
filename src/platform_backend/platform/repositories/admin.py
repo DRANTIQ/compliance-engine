@@ -180,6 +180,37 @@ class AdminRepository:
         results.sort(key=lambda r: r["updated_at"], reverse=True)
         return results[:limit]
 
+    async def list_scans_for_tenant(
+        self,
+        tenant_id: UUID,
+        *,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        tenant = await self.get_tenant(tenant_id)
+        if not tenant:
+            return []
+        rows = await self._db.fetch(
+            tenant_id,
+            """
+            SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id,
+                   s.started_at, s.completed_at, s.created_at, s.updated_at
+            FROM platform.scans s
+            WHERE s.tenant_id = $1
+            ORDER BY s.updated_at DESC
+            LIMIT $2
+            """,
+            tenant_id,
+            limit,
+        )
+        return [
+            {
+                **dict(row),
+                "tenant_name": tenant["name"],
+                "tenant_slug": tenant["slug"],
+            }
+            for row in rows
+        ]
+
     async def count_tenants(self) -> int:
         value = await self._db.fetchrow_global("SELECT COUNT(*)::int AS n FROM platform.tenants")
         return int(value["n"]) if value else 0

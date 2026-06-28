@@ -13,5 +13,16 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.user_name
-  - properties.has_administrator_access
+- properties.user_name
+- properties.has_administrator_access
+cis_control_id: '2.15'
+remediation:
+  headline: IAM users must not have full admin policies attached
+  risk_summary: IAM users must not have AdministratorAccess attached directly (CIS
+    2.15).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM users must not have full admin policies attached'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 2.15

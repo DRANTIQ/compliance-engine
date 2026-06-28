@@ -4,27 +4,39 @@ provider: aws
 resource_type: identity.user
 provider_type: aws_iam_user
 severity: high
-description: Ensure multi-factor authentication (MFA) is enabled for IAM users with console access (CIS 2.9).
+description: Ensure multi-factor authentication (MFA) is enabled for IAM users with
+  console access (CIS 2.9).
 logic:
   type: fail_when
   condition:
     type: compound
     operator: and
     conditions:
+    - type: field_check
+      path: properties.password_last_used
+      operator: exists
+    - type: compound
+      operator: or
+      conditions:
       - type: field_check
-        path: properties.password_last_used
-        operator: exists
-      - type: compound
-        operator: or
-        conditions:
-          - type: field_check
-            path: properties.mfa_enabled
-            operator: missing
-          - type: field_check
-            path: properties.mfa_enabled
-            operator: eq
-            expected: false
+        path: properties.mfa_enabled
+        operator: missing
+      - type: field_check
+        path: properties.mfa_enabled
+        operator: eq
+        expected: false
 evidence_fields:
-  - properties.user_name
-  - properties.password_last_used
-  - properties.mfa_enabled
+- properties.user_name
+- properties.password_last_used
+- properties.mfa_enabled
+cis_control_id: '2.9'
+remediation:
+  headline: IAM user must have MFA enabled
+  risk_summary: Ensure multi-factor authentication (MFA) is enabled for IAM users
+    with console access (CIS 2.9).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM user must have MFA enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - CIS 2.9

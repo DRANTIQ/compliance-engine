@@ -4,7 +4,8 @@ provider: aws
 resource_type: network.nacl
 provider_type: aws_ec2_network_acl
 severity: high
-description: Network ACLs must not allow unrestricted SSH/RDP from the internet (CIS 6.2).
+description: Network ACLs must not allow unrestricted SSH/RDP from the internet (CIS
+  6.2).
 logic:
   type: fail_when
   condition:
@@ -13,5 +14,15 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.network_acl_id
-  - properties.allows_unrestricted_admin_ports
+- properties.network_acl_id
+- properties.allows_unrestricted_admin_ports
+cis_control_id: '6.2'
+remediation:
+  headline: Network ACL allows unrestricted admin ports
+  risk_summary: Administrative ports may be reachable from the internet.
+  business_impact: Remote administration ports exposed to attackers.
+  fix_summary: Restrict NACL rules that allow 0.0.0.0/0 on admin ports.
+  estimated_fix_minutes: 15
+  framework_mappings:
+  - CIS 6.2
+  - NIST SC-7

@@ -4,7 +4,8 @@ provider: aws
 resource_type: identity.certificate
 provider_type: aws_iam_server_certificate
 severity: medium
-description: IAM server certificates past their expiration date must be removed (CIS 2.18).
+description: IAM server certificates past their expiration date must be removed (CIS
+  2.18).
 logic:
   type: fail_when
   condition:
@@ -13,6 +14,17 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.name
-  - properties.expiration
-  - properties.is_expired
+- properties.name
+- properties.expiration
+- properties.is_expired
+cis_control_id: '2.18'
+remediation:
+  headline: Expired IAM SSL/TLS certificates must be removed
+  risk_summary: IAM server certificates past their expiration date must be removed
+    (CIS 2.18).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Expired IAM SSL/TLS certificates must be removed'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.18

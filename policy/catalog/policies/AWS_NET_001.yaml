@@ -11,13 +11,24 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.default_ebs_encryption_enabled
-        operator: missing
-      - type: field_check
-        path: properties.default_ebs_encryption_enabled
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.default_ebs_encryption_enabled
+      operator: missing
+    - type: field_check
+      path: properties.default_ebs_encryption_enabled
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.region
-  - properties.default_ebs_encryption_enabled
+- properties.region
+- properties.default_ebs_encryption_enabled
+cis_control_id: 6.1.1
+remediation:
+  headline: EBS encryption not enabled by default
+  risk_summary: New EBS volumes may be created without encryption.
+  business_impact: Unencrypted disks increase data breach impact.
+  fix_summary: Enable EBS encryption by default for the region.
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - CIS 6.1.1
+  - NIST SC-28
+  aws_cli: aws ec2 enable-ebs-encryption-by-default --region {region}

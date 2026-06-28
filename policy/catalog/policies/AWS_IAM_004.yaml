@@ -11,13 +11,23 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.password_reuse_prevention
-        operator: missing
-      - type: field_check
-        path: properties.password_reuse_prevention
-        operator: eq
-        expected: 0
+    - type: field_check
+      path: properties.password_reuse_prevention
+      operator: missing
+    - type: field_check
+      path: properties.password_reuse_prevention
+      operator: eq
+      expected: 0
 evidence_fields:
-  - properties.account_id
-  - properties.password_reuse_prevention
+- properties.account_id
+- properties.password_reuse_prevention
+cis_control_id: '2.8'
+remediation:
+  headline: IAM password policy prevents reuse
+  risk_summary: IAM password policy must prevent password reuse (CIS 2.8).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: IAM password policy prevents reuse'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.8

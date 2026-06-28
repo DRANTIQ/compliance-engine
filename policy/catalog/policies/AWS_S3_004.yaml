@@ -11,13 +11,22 @@ logic:
     type: compound
     operator: or
     conditions:
-      - type: field_check
-        path: properties.cloudtrail_s3_read_logging
-        operator: missing
-      - type: field_check
-        path: properties.cloudtrail_s3_read_logging
-        operator: eq
-        expected: false
+    - type: field_check
+      path: properties.cloudtrail_s3_read_logging
+      operator: missing
+    - type: field_check
+      path: properties.cloudtrail_s3_read_logging
+      operator: eq
+      expected: false
 evidence_fields:
-  - properties.name
-  - properties.cloudtrail_s3_read_logging
+- properties.name
+- properties.cloudtrail_s3_read_logging
+cis_control_id: '4.9'
+remediation:
+  headline: S3 read events not logged
+  risk_summary: Object downloads may go unrecorded.
+  business_impact: Data exfiltration may go undetected.
+  fix_summary: Enable CloudTrail data events for S3 object-level read activity.
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - CIS 4.9

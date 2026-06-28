@@ -4,7 +4,8 @@ provider: aws
 resource_type: identity.user
 provider_type: aws_iam_user
 severity: medium
-description: Active IAM access keys unused for 45 days or more must be disabled (CIS 2.11).
+description: Active IAM access keys unused for 45 days or more must be disabled (CIS
+  2.11).
 logic:
   type: fail_when
   condition:
@@ -13,5 +14,16 @@ logic:
     operator: eq
     expected: true
 evidence_fields:
-  - properties.user_name
-  - properties.has_unused_active_credentials
+- properties.user_name
+- properties.has_unused_active_credentials
+cis_control_id: '2.11'
+remediation:
+  headline: Unused IAM credentials must be disabled
+  risk_summary: Active IAM access keys unused for 45 days or more must be disabled
+    (CIS 2.11).
+  business_impact: This misconfiguration may lead to unauthorized access or compliance
+    failure.
+  fix_summary: 'Remediate in AWS: Unused IAM credentials must be disabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - CIS 2.11

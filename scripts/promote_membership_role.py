@@ -26,9 +26,13 @@ async def main() -> int:
     )
     args = parser.parse_args()
 
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+    from load_repo_dotenv import load_repo_dotenv
+
+    load_repo_dotenv()
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
-        print("DATABASE_URL is required", file=sys.stderr)
+        print("DATABASE_URL is required (set in compliance-engine/.env)", file=sys.stderr)
         return 1
     if "sslmode=" not in database_url:
         sep = "&" if "?" in database_url else "?"

@@ -24,23 +24,19 @@ Dev auth: `X-Tenant-ID` header.
 
 ## Quick start (local mock pipeline)
 
+Each repo uses **`.env` only** (copy from `.env.example`; never commit `.env`).
+
 ```powershell
-# Terminal 1 — API (port 8084 if 8080/8082 busy)
-$env:API_PORT = "8084"
-python scripts/run_api.py
-
-# Terminal 2 — ingest worker (one instance only)
-python scripts/run_ingest_worker.py
-
-# Terminal 3 — collector worker
+cd compliance-engine
+cp .env.example .env
 cd ..\platform-collectors
-$env:COLLECTOR_MOCK = "true"
-$env:USE_LOCAL_STORAGE = "true"
-python scripts/run_collector_worker.py
+cp .env.example .env   # COLLECTOR_MOCK=true for mock
 
-# Or run all in one process (dev):
-python scripts/run_phase1_local_pipeline.py
+cd ..\compliance-engine
+.\scripts\start_platform_v2.ps1
 ```
+
+Or run processes manually:
 
 Requires `platform-db` migrations applied and `EXTERNAL_ID_ENCRYPTION_KEY` set.
 
