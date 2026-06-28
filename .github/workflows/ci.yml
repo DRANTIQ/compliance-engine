@@ -9,18 +9,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/postgres?sslmode=require
+      EXTERNAL_ID_ENCRYPTION_KEY: ci-test-encryption-key
+      SUPABASE_URL: https://ci.example.supabase.co
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/platform-collectors
+          path: platform-collectors
+          token: ${{ secrets.COLLECTORS_REPO_PAT || secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ".[dev]"
+          pip install -e ./platform-collectors
 
       - name: Run tests
-        run: pytest tests/ -q --ignore=tests/integration 2>/dev/null || pytest tests/test_customer_experience.py tests/test_finding_remediation.py tests/test_policy_catalog.py -q
+        run: pytest tests/ -q --ignore=tests/integration
 
       - name: Ruff
         run: ruff check src tests
