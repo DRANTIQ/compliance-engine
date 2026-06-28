@@ -140,14 +140,16 @@ Defaults (CORS, queue keys, `OIDC_ENABLED=true`, etc.) live in `render_productio
 ## One-time EC2 bootstrap
 
 ```bash
-ssh ubuntu@54.90.98.205
+ssh ubuntu@YOUR_EC2_IP
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker ubuntu
-sudo mkdir -p /opt/platform/deploy && sudo chown ubuntu:ubuntu /opt/platform/deploy
+sudo mkdir -p /opt/platform/deploy && sudo chown -R ubuntu:ubuntu /opt/platform
 
 # nginx → 127.0.0.1:8090 (see nginx/api.conf)
 sudo certbot --nginx -d api.drantiq.ai
 ```
+
+The deploy workflow creates `/opt/platform/deploy` before SCP. Run the `mkdir`/`chown` manually if needed.
 
 Attach an **Elastic IP** and set `EC2_HOST` to it.
 
