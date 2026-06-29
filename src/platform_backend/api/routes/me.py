@@ -1,12 +1,24 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from platform_backend.identity.deps import get_principal
 from platform_backend.identity.models import PlatformPrincipal
 
 router = APIRouter(prefix="/v1/me", tags=["identity"])
+
+
+class WorkspaceSummary(BaseModel):
+    id: str
+    name: str
+    slug: str
+    status: str
+    onboarding_state: str
+    plan: str
+    trial_end: str | None = None
 
 
 class MeResponse(BaseModel):
@@ -17,6 +29,7 @@ class MeResponse(BaseModel):
     user_id: str | None = Field(default=None, description="Internal platform.users id")
     issuer: str | None = Field(default=None, description="JWT `iss` (Supabase auth issuer URL)")
     auth_mode: str = Field(description="jwt or dev_header")
+    workspace: WorkspaceSummary | None = None
 
 
 @router.get(
@@ -36,6 +49,18 @@ class MeResponse(BaseModel):
     },
 )
 async def get_me(principal: PlatformPrincipal = Depends(get_principal)) -> MeResponse:
+    workspace = None
+    if principal.workspace_name and principal.onboarding_state:
+        trial_end = principal.trial_end
+        workspace = WorkspaceSummary(
+            id=str(principal.tenant_id),
+            name=principal.workspace_name,
+            slug=principal.workspace_slug or "",
+            status=principal.workspace_status or "active",
+            onboarding_state=principal.onboarding_state,
+            plan=principal.plan or "trial",
+            trial_end=trial_end.isoformat() if isinstance(trial_end, datetime) else None,
+        )
     return MeResponse(
         tenant_id=str(principal.tenant_id),
         role=principal.role,
@@ -44,4 +69,5 @@ async def get_me(principal: PlatformPrincipal = Depends(get_principal)) -> MeRes
         user_id=str(principal.user_id) if principal.user_id else None,
         issuer=principal.issuer,
         auth_mode=principal.auth_mode,
+        workspace=workspace,
     )

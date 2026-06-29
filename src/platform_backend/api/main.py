@@ -12,14 +12,17 @@ from platform_backend.api.openapi import API_DESCRIPTION, configure_openapi
 from platform_backend.api.routes import (
     admin,
     assets,
+    billing,
     compliance,
     docs_redirect,
     findings,
     health,
     integrations,
+    invitations,
     me,
     policies,
     scans,
+    workspaces,
 )
 from platform_backend.config.settings import get_settings
 from platform_backend.db.pool import DatabasePool
@@ -114,6 +117,9 @@ def create_app() -> FastAPI:
     app.include_router(docs_redirect.router)
     app.include_router(health.router)
     app.include_router(me.router)
+    app.include_router(workspaces.router)
+    app.include_router(invitations.router)
+    app.include_router(billing.router)
     app.include_router(integrations.router)
     app.include_router(scans.router)
     app.include_router(assets.router)

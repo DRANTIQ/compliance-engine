@@ -47,6 +47,7 @@ DEFAULTS: dict[str, str] = {
     "AWS_DEFAULT_REGION": "us-east-1",
     "AWS_EC2_METADATA_DISABLED": "false",
     "CORS_ORIGINS": "https://app.drantiq.ai,https://admin.drantiq.ai",
+    "APP_PUBLIC_URL": "https://app.drantiq.ai",
 }
 
 

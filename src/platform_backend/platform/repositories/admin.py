@@ -34,8 +34,8 @@ class AdminRepository:
     async def create_tenant(self, *, name: str, slug: str) -> dict[str, Any]:
         row = await self._db.fetchrow_global(
             """
-            INSERT INTO platform.tenants (name, slug)
-            VALUES ($1, $2)
+            INSERT INTO platform.tenants (name, slug, status, onboarding_state, plan)
+            VALUES ($1, $2, 'active', 'ONBOARDING_COMPLETE', 'trial')
             RETURNING id, name, slug, status, created_at, updated_at
             """,
             name,

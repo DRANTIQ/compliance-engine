@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -26,3 +27,9 @@ class PlatformPrincipal:
     user_id: UUID | None = None
     issuer: str | None = None
     auth_mode: str = "unknown"
+    workspace_name: str | None = None
+    workspace_slug: str | None = None
+    workspace_status: str | None = None
+    onboarding_state: str | None = None
+    plan: str | None = None
+    trial_end: datetime | None = None

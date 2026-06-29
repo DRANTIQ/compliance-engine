@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     oidc_jwks_uri: str = Field(default="", alias="OIDC_JWKS_URI")
     oidc_jwt_secret: str = Field(default="", alias="OIDC_JWT_SECRET")
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
+    app_public_url: str = Field(default="https://app.drantiq.ai", alias="APP_PUBLIC_URL")
+    billing_webhook_secret: str = Field(default="", alias="BILLING_WEBHOOK_SECRET")
 
     @property
     def jwt_auth_enabled(self) -> bool:

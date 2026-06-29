@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Request, status
 
 from platform_backend.config.settings import Settings, get_settings
 from platform_backend.db.pool import DatabasePool
-from platform_backend.identity.models import PlatformPrincipal, PlatformRole, READ_ROLES, WRITE_ROLES
+from platform_backend.identity.models import PlatformPrincipal, PlatformRole, READ_ROLES, WRITE_ROLES, TokenClaims
 from platform_backend.identity.repository import IdentityRepository
 from platform_backend.identity.jwt_factory import build_jwt_verifier
 from platform_backend.identity.service import IdentityService
@@ -41,6 +41,13 @@ async def get_principal(
     request.state.tenant_id = principal.tenant_id
     request.state.principal = principal
     return principal
+
+
+async def get_jwt_claims(
+    request: Request,
+    service: IdentityService = Depends(get_identity_service),
+) -> TokenClaims:
+    return service.verify_bearer_token(request)
 
 
 async def get_tenant_id(principal: PlatformPrincipal = Depends(get_principal)):
