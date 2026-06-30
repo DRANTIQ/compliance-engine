@@ -1,0 +1,332 @@
+# P5 Wave 1 — compute security checks (Lambda, GuardDuty, EC2, EBS, SG)
+# Generated into policy/catalog/policies/AWS_CMP_*.yaml by build_policy_catalog.py
+
+version: "1.0.0"
+pack_id: pack_aws_compute_security
+policies:
+  - policy_id: AWS_CMP_001
+    control_ref: lambda-public-invoke
+    domain: compute
+    severity: high
+    display_title: Lambda function allows public invocation
+    title: Lambda function must not allow public invocation
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    nist_mappings: [AC-3, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.publicly_accessible
+        operator: eq
+        expected: true
+    evidence_fields: [properties.function_name, properties.publicly_accessible]
+
+  - policy_id: AWS_CMP_002
+    control_ref: lambda-url-no-auth
+    domain: compute
+    severity: critical
+    display_title: Lambda function URL without authentication
+    title: Lambda function URL must not use unauthenticated access
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    nist_mappings: [AC-3, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.function_url_auth_none
+        operator: eq
+        expected: true
+    evidence_fields: [properties.function_name, properties.function_url_auth_none]
+
+  - policy_id: AWS_CMP_003
+    control_ref: lambda-tracing-disabled
+    domain: compute
+    severity: medium
+    display_title: Lambda function tracing disabled
+    title: Lambda function must have active X-Ray tracing
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    nist_mappings: [AU-12, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.tracing_mode
+        operator: ne
+        expected: Active
+    evidence_fields: [properties.function_name, properties.tracing_mode]
+
+  - policy_id: AWS_CMP_004
+    control_ref: lambda-deprecated-runtime
+    domain: compute
+    severity: high
+    display_title: Lambda function uses deprecated runtime
+    title: Lambda function must use a supported runtime
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    nist_mappings: [SI-2, SA-3]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.runtime_deprecated
+        operator: eq
+        expected: true
+    evidence_fields: [properties.function_name, properties.runtime]
+
+  - policy_id: AWS_CMP_005
+    control_ref: lambda-no-dlq
+    domain: compute
+    severity: medium
+    display_title: Lambda function missing dead letter queue
+    title: Lambda function must configure a dead letter queue
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    nist_mappings: [SI-4, CP-2]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.has_dead_letter_queue
+        operator: eq
+        expected: false
+    evidence_fields: [properties.function_name, properties.has_dead_letter_queue]
+
+  - policy_id: AWS_CMP_006
+    control_ref: guardduty-disabled
+    domain: security
+    severity: high
+    display_title: GuardDuty disabled in region
+    title: Amazon GuardDuty must be enabled
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    nist_mappings: [SI-4, RA-5]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.region, properties.enabled]
+
+  - policy_id: AWS_CMP_007
+    control_ref: guardduty-s3-protection
+    domain: security
+    severity: medium
+    display_title: GuardDuty S3 protection disabled
+    title: GuardDuty S3 data event protection must be enabled
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    nist_mappings: [SI-4, AU-2]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.enabled
+            operator: eq
+            expected: true
+          - type: field_check
+            path: properties.s3_protection_enabled
+            operator: eq
+            expected: false
+    evidence_fields: [properties.region, properties.s3_protection_enabled]
+
+  - policy_id: AWS_CMP_008
+    control_ref: guardduty-lambda-protection
+    domain: security
+    severity: medium
+    display_title: GuardDuty Lambda protection disabled
+    title: GuardDuty Lambda network logs protection must be enabled
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    nist_mappings: [SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.enabled
+            operator: eq
+            expected: true
+          - type: field_check
+            path: properties.lambda_protection_enabled
+            operator: eq
+            expected: false
+    evidence_fields: [properties.region, properties.lambda_protection_enabled]
+
+  - policy_id: AWS_CMP_009
+    control_ref: guardduty-eks-audit
+    domain: security
+    severity: medium
+    display_title: GuardDuty EKS audit log monitoring disabled
+    title: GuardDuty EKS audit log monitoring must be enabled
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    nist_mappings: [SI-4, AU-2]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.enabled
+            operator: eq
+            expected: true
+          - type: field_check
+            path: properties.eks_audit_logs_enabled
+            operator: eq
+            expected: false
+    evidence_fields: [properties.region, properties.eks_audit_logs_enabled]
+
+  - policy_id: AWS_CMP_010
+    control_ref: ec2-public-ip
+    domain: network
+    severity: high
+    display_title: EC2 instance has a public IP address
+    title: EC2 instances should not have a public IP address
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: ne
+            expected: terminated
+          - type: field_check
+            path: properties.has_public_ip
+            operator: eq
+            expected: true
+    evidence_fields: [properties.instance_id, properties.has_public_ip]
+
+  - policy_id: AWS_CMP_011
+    control_ref: ebs-unencrypted
+    domain: storage
+    severity: high
+    display_title: Unencrypted EBS volume in use
+    title: In-use EBS volumes must be encrypted
+    resource_type: storage.volume
+    provider_type: aws_ebs_volume
+    collector: ebs
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.encrypted
+        operator: eq
+        expected: false
+    evidence_fields: [properties.volume_id, properties.encrypted]
+
+  - policy_id: AWS_CMP_012
+    control_ref: ec2-detailed-monitoring
+    domain: compute
+    severity: low
+    display_title: EC2 detailed monitoring disabled
+    title: Running EC2 instances should have detailed monitoring enabled
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [AU-12, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: eq
+            expected: running
+          - type: field_check
+            path: properties.detailed_monitoring
+            operator: eq
+            expected: false
+    evidence_fields: [properties.instance_id, properties.detailed_monitoring]
+
+  - policy_id: AWS_CMP_013
+    control_ref: sg-ssh-internet
+    domain: network
+    severity: high
+    display_title: Security group allows SSH from the internet
+    title: Security groups must not allow SSH from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_ssh_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_ssh_from_internet_ipv4]
+
+  - policy_id: AWS_CMP_014
+    control_ref: sg-rdp-internet
+    domain: network
+    severity: high
+    display_title: Security group allows RDP from the internet
+    title: Security groups must not allow RDP from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_rdp_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_rdp_from_internet_ipv4]
+
+  - policy_id: AWS_CMP_015
+    control_ref: guardduty-rds-protection
+    domain: security
+    severity: medium
+    display_title: GuardDuty RDS login monitoring disabled
+    title: GuardDuty RDS login event monitoring must be enabled
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    nist_mappings: [SI-4, AU-2]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.enabled
+            operator: eq
+            expected: true
+          - type: field_check
+            path: properties.rds_login_events_enabled
+            operator: eq
+            expected: false
+    evidence_fields: [properties.region, properties.rds_login_events_enabled]

@@ -1,0 +1,38 @@
+policy_id: AWS_EC2_004
+title: EC2 instances must not disable source/destination checks
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: medium
+description: EC2 instances must not disable source/destination checks
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: eq
+      expected: running
+    - type: field_check
+      path: properties.source_dest_check
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.instance_id
+- properties.source_dest_check
+remediation:
+  headline: EC2 source/destination check disabled
+  risk_summary: EC2 instances must not disable source/destination checks
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EC2 instances must not disable source/destination
+    checks'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+display_title: EC2 source/destination check disabled
+pack_id: pack_aws_compute

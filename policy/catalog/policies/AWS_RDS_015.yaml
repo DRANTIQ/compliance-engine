@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_015
+title: DynamoDB tables must have server-side encryption enabled
+provider: aws
+resource_type: database.table
+provider_type: aws_dynamodb_table
+severity: high
+description: DynamoDB tables must have server-side encryption enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.sse_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.table_name
+- properties.sse_enabled
+remediation:
+  headline: DynamoDB table encryption disabled
+  risk_summary: DynamoDB tables must have server-side encryption enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: DynamoDB tables must have server-side encryption
+    enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: DynamoDB table encryption disabled
+pack_id: pack_aws_data

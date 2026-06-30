@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_008
+title: RDS instances must export database logs to CloudWatch
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: medium
+description: RDS instances must export database logs to CloudWatch
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_cloudwatch_logs_exports
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_instance_identifier
+- properties.has_cloudwatch_logs_exports
+remediation:
+  headline: RDS CloudWatch log exports disabled
+  risk_summary: RDS instances must export database logs to CloudWatch
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances must export database logs to CloudWatch'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST AU-12
+  - NIST SI-4
+  - SOC2 CC7.2
+display_title: RDS CloudWatch log exports disabled
+pack_id: pack_aws_data

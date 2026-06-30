@@ -38,7 +38,7 @@ class TopRiskItem(BaseModel):
 
 
 class ScanRiskSummaryResponse(BaseModel):
-    score: float | None = Field(default=None, description="CIS compliance score when available")
+    score: float | None = Field(default=None, description="Security assessment score when available")
     total_findings: int
     critical: int = 0
     high: int = 0

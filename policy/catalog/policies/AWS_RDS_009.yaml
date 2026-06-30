@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_009
+title: RDS instances should enable enhanced monitoring
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: low
+description: RDS instances should enable enhanced monitoring
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.monitoring_interval
+    operator: eq
+    expected: 0
+evidence_fields:
+- properties.db_instance_identifier
+- properties.monitoring_interval
+remediation:
+  headline: RDS enhanced monitoring disabled
+  risk_summary: RDS instances should enable enhanced monitoring
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances should enable enhanced monitoring'
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - NIST AU-12
+  - NIST SI-4
+  - SOC2 CC7.2
+display_title: RDS enhanced monitoring disabled
+pack_id: pack_aws_data

@@ -18,9 +18,8 @@ evidence_fields:
 - properties.has_direct_attached_policies_without_groups
 - properties.group_count
 - properties.attached_policy_count
-cis_control_id: '2.14'
 remediation:
-  headline: IAM users must receive permissions via groups
+  headline: IAM user has direct policy attachments
   risk_summary: IAM users must not have directly attached policies without group membership
     (CIS 2.14).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -29,3 +28,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 2.14
+  - SOC2 CC6.3
+display_title: IAM user has direct policy attachments
+pack_id: pack_aws_identity

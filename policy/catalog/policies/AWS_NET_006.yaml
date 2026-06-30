@@ -25,9 +25,8 @@ evidence_fields:
 - properties.group_name
 - properties.is_default
 - properties.default_allows_unrestricted_ingress
-cis_control_id: '6.5'
 remediation:
-  headline: Default security group must restrict all traffic
+  headline: Default security group not restrictive
   risk_summary: Default VPC security groups must not allow unrestricted inbound traffic
     (CIS 6.5).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -36,3 +35,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 6.5
+  - SOC2 CC6.4
+display_title: Default security group not restrictive
+pack_id: pack_aws_network

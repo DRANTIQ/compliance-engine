@@ -23,9 +23,8 @@ evidence_fields:
 - properties.instance_id
 - properties.state
 - properties.iam_instance_profile_arn
-cis_control_id: '2.17'
 remediation:
-  headline: EC2 instances must use IAM instance roles
+  headline: EC2 instance missing IAM role
   risk_summary: Non-terminated EC2 instances must have an IAM instance profile attached
     (CIS 2.17).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -34,3 +33,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 2.17
+  - SOC2 CC6.4
+display_title: EC2 instance missing IAM role
+pack_id: pack_aws_identity

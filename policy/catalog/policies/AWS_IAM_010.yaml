@@ -15,9 +15,8 @@ logic:
 evidence_fields:
 - properties.user_name
 - properties.has_administrator_access
-cis_control_id: '2.15'
 remediation:
-  headline: IAM users must not have full admin policies attached
+  headline: IAM user has administrator access
   risk_summary: IAM users must not have AdministratorAccess attached directly (CIS
     2.15).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -26,3 +25,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 2.15
+  - SOC2 CC6.3
+display_title: IAM user has administrator access
+pack_id: pack_aws_identity

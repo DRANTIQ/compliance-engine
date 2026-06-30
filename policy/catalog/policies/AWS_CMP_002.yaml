@@ -1,0 +1,32 @@
+policy_id: AWS_CMP_002
+title: Lambda function URL must not use unauthenticated access
+provider: aws
+resource_type: compute.function
+provider_type: aws_lambda_function
+severity: critical
+description: Lambda function URL must not use unauthenticated access
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.function_url_auth_none
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.function_name
+- properties.function_url_auth_none
+remediation:
+  headline: Lambda function URL without authentication
+  risk_summary: Lambda function URL must not use unauthenticated access
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Lambda function URL must not use unauthenticated
+    access'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-3
+  - NIST SC-7
+  - SOC2 CC6.8
+  - SOC2 CC8.1
+display_title: Lambda function URL without authentication
+pack_id: pack_aws_compute_security

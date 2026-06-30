@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_007
+title: RDS instances should enable IAM database authentication
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: medium
+description: RDS instances should enable IAM database authentication
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.iam_database_authentication_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_instance_identifier
+- properties.iam_database_authentication_enabled
+remediation:
+  headline: RDS IAM database authentication disabled
+  risk_summary: RDS instances should enable IAM database authentication
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances should enable IAM database authentication'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST IA-2
+  - NIST AC-3
+  - SOC2 CC8.1
+display_title: RDS IAM database authentication disabled
+pack_id: pack_aws_data

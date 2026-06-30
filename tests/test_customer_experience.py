@@ -45,14 +45,25 @@ def test_enrich_customer_finding_has_display_and_remediation() -> None:
     assert item["resource_type_label"] == "S3 bucket"
     assert item["remediation"]["summary"]
     assert item["remediation"]["aws_cli"]
-    assert item["frameworks"][0]["framework"] == "CIS AWS v6"
-    assert item["frameworks"][0]["control"] == "3.1.4"
+    assert "CIS" not in str(item["frameworks"])
+    assert item["remediation"]["framework_mappings"] == ["SOC2 CC6.6", "NIST AC-3"]
+    framework_names = {f["framework"] for f in item["frameworks"]}
+    assert "SOC 2" in framework_names
+    assert "NIST 800-53" in framework_names
 
 
-def test_parse_framework_mappings() -> None:
-    out = parse_framework_mappings(["CIS 3.1.4", "SOC2 CC6.1"])
+def test_parse_framework_mappings_internal_includes_cis() -> None:
+    out = parse_framework_mappings(["CIS 3.1.4", "SOC2 CC6.1"], customer_visible=False)
     assert out[0] == {"framework": "CIS AWS v6", "control": "3.1.4"}
     assert out[1] == {"framework": "SOC 2", "control": "CC6.1"}
+
+
+def test_parse_framework_mappings_customer_hides_cis() -> None:
+    out = parse_framework_mappings(["CIS 3.1.4", "SOC2 CC6.1", "NIST AC-3"], customer_visible=True)
+    assert out == [
+        {"framework": "SOC 2", "control": "CC6.1"},
+        {"framework": "NIST 800-53", "control": "AC-3"},
+    ]
 
 
 def test_build_risk_summary() -> None:

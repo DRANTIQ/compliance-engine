@@ -1,0 +1,37 @@
+policy_id: AWS_EC2_002
+title: EC2 IMDS hop limit must not exceed 1
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: high
+description: EC2 IMDS hop limit must not exceed 1
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: ne
+      expected: terminated
+    - type: field_check
+      path: properties.http_put_response_hop_limit
+      operator: gt
+      expected: 1
+evidence_fields:
+- properties.instance_id
+- properties.http_put_response_hop_limit
+remediation:
+  headline: EC2 IMDS hop limit allows container SSRF
+  risk_summary: EC2 IMDS hop limit must not exceed 1
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EC2 IMDS hop limit must not exceed 1'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.8
+display_title: EC2 IMDS hop limit allows container SSRF
+pack_id: pack_aws_compute

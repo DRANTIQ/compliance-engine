@@ -1,0 +1,31 @@
+policy_id: AWS_RDS_004
+title: RDS instances must retain automated backups for at least 7 days
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: medium
+description: RDS instances must retain automated backups for at least 7 days
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.backup_retention_period
+    operator: lt
+    expected: 7
+evidence_fields:
+- properties.db_instance_identifier
+- properties.backup_retention_period
+remediation:
+  headline: RDS backup retention below 7 days
+  risk_summary: RDS instances must retain automated backups for at least 7 days
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances must retain automated backups for
+    at least 7 days'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST CP-2
+  - NIST SC-28
+  - SOC2 CC8.1
+display_title: RDS backup retention below 7 days
+pack_id: pack_aws_data

@@ -67,7 +67,7 @@ def remediation_for_finding(
     rem: PolicyRemediation = pol.effective_remediation()
     ctx = _resource_context(finding)
     return {
-        "headline": rem.headline or pol.title,
+        "headline": rem.headline or pol.customer_display_title(),
         "risk_summary": rem.risk_summary or pol.description,
         "business_impact": rem.business_impact,
         "fix_summary": rem.fix_summary,
@@ -79,11 +79,17 @@ def remediation_for_finding(
     }
 
 
-def enrich_finding(finding: dict[str, Any]) -> dict[str, Any]:
+def enrich_finding(finding: dict[str, Any], *, customer_visible: bool = False) -> dict[str, Any]:
     out = dict(finding)
-    rem = remediation_for_finding(finding)
+    pol = get_policy_definition(finding.get("policy_id", ""))
+    rem = remediation_for_finding(finding, pol)
+    if customer_visible and pol:
+        rem = dict(rem)
+        rem["framework_mappings"] = list(pol.effective_remediation().customer_framework_mappings())
     out["remediation"] = rem
-    display = rem.get("headline") or finding.get("title")
+    display = pol.customer_display_title() if pol else rem.get("headline") or finding.get("title")
     out["display_title"] = display
     out["technical_title"] = finding.get("title")
+    if customer_visible:
+        out["policy_id"] = finding.get("policy_id")
     return out

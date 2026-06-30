@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.region
 - properties.default_ebs_encryption_enabled
-cis_control_id: 6.1.1
 remediation:
   headline: EBS encryption not enabled by default
   risk_summary: New EBS volumes may be created without encryption.
@@ -31,4 +30,7 @@ remediation:
   framework_mappings:
   - CIS 6.1.1
   - NIST SC-28
+  - SOC2 CC6.7
   aws_cli: aws ec2 enable-ebs-encryption-by-default --region {region}
+display_title: Default EBS encryption disabled
+pack_id: pack_aws_network

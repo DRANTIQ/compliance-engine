@@ -1,0 +1,30 @@
+policy_id: AWS_EC2_009
+title: EC2 serial console access must be disabled
+provider: aws
+resource_type: identity.account
+provider_type: aws_ec2_account_setting
+severity: medium
+description: EC2 serial console access must be disabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.serial_console_access_enabled
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.region
+- properties.serial_console_access_enabled
+remediation:
+  headline: EC2 serial console access enabled
+  risk_summary: EC2 serial console access must be disabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EC2 serial console access must be disabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST AC-17
+  - NIST SC-7
+  - SOC2 CC7.3
+display_title: EC2 serial console access enabled
+pack_id: pack_aws_compute

@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_018
+title: ElastiCache replication groups must encrypt data at rest
+provider: aws
+resource_type: database.cache
+provider_type: aws_elasticache_replication_group
+severity: high
+description: ElastiCache replication groups must encrypt data at rest
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.at_rest_encryption_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.replication_group_id
+- properties.at_rest_encryption_enabled
+remediation:
+  headline: ElastiCache encryption at rest disabled
+  risk_summary: ElastiCache replication groups must encrypt data at rest
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: ElastiCache replication groups must encrypt data
+    at rest'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: ElastiCache encryption at rest disabled
+pack_id: pack_aws_data

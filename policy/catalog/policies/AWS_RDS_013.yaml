@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_013
+title: RDS clusters must have deletion protection enabled
+provider: aws
+resource_type: database.cluster
+provider_type: aws_rds_cluster
+severity: high
+description: RDS clusters must have deletion protection enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.deletion_protection
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_cluster_identifier
+- properties.deletion_protection
+remediation:
+  headline: RDS cluster deletion protection disabled
+  risk_summary: RDS clusters must have deletion protection enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS clusters must have deletion protection enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST CP-2
+  - NIST CM-2
+  - SOC2 CC6.4
+display_title: RDS cluster deletion protection disabled
+pack_id: pack_aws_data

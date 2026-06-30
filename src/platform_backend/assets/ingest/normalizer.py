@@ -152,6 +152,12 @@ def normalize_bronze(
                 "subnet_id": item.get("SubnetId"),
                 "iam_instance_profile_arn": item.get("IamInstanceProfileArn"),
                 "http_tokens": item.get("HttpTokens"),
+                "has_public_ip": bool(item.get("PublicIpAddress")),
+                "detailed_monitoring": item.get("MonitoringState") == "enabled",
+                "termination_protected": item.get("TerminationProtected", False),
+                "http_endpoint": item.get("HttpEndpoint", "enabled"),
+                "http_put_response_hop_limit": item.get("HttpPutResponseHopLimit", 1),
+                "source_dest_check": item.get("SourceDestCheck", True),
             }
             tags = _tags_from_aws(item.get("Tags"))
             vpc_id = item.get("VpcId")
@@ -168,11 +174,64 @@ def normalize_bronze(
         elif provider_type == "aws_rds_instance":
             resource_id = item["DBInstanceArn"]
             region = item.get("Region")
+            logs_exports = item.get("EnabledCloudwatchLogsExports") or []
             properties = {
                 "db_instance_identifier": item.get("DBInstanceIdentifier"),
                 "storage_encrypted": item.get("StorageEncrypted", False),
                 "auto_minor_version_upgrade": item.get("AutoMinorVersionUpgrade", False),
                 "publicly_accessible": item.get("PubliclyAccessible", False),
+                "backup_retention_period": item.get("BackupRetentionPeriod", 0),
+                "multi_az": item.get("MultiAZ", False),
+                "deletion_protection": item.get("DeletionProtection", False),
+                "iam_database_authentication_enabled": item.get(
+                    "IAMDatabaseAuthenticationEnabled", False
+                ),
+                "has_cloudwatch_logs_exports": len(logs_exports) > 0,
+                "monitoring_interval": item.get("MonitoringInterval", 0),
+                "performance_insights_enabled": item.get("PerformanceInsightsEnabled", False),
+                "engine": item.get("Engine"),
+            }
+            tags = {}
+        elif provider_type == "aws_rds_cluster":
+            resource_id = item["DBClusterArn"]
+            region = item.get("Region")
+            properties = {
+                "db_cluster_identifier": item.get("DBClusterIdentifier"),
+                "storage_encrypted": item.get("StorageEncrypted", False),
+                "deletion_protection": item.get("DeletionProtection", False),
+                "backup_retention_period": item.get("BackupRetentionPeriod", 0),
+                "iam_database_authentication_enabled": item.get(
+                    "IAMDatabaseAuthenticationEnabled", False
+                ),
+            }
+            tags = {}
+        elif provider_type == "aws_rds_snapshot":
+            region = item.get("Region")
+            resource_id = item["DBSnapshotArn"]
+            properties = {
+                "db_snapshot_identifier": item.get("DBSnapshotIdentifier"),
+                "encrypted": item.get("Encrypted", False),
+                "public": item.get("Public", False),
+                "status": item.get("Status"),
+            }
+            tags = {}
+        elif provider_type == "aws_dynamodb_table":
+            region = item.get("Region")
+            resource_id = item["TableArn"]
+            properties = {
+                "table_name": item.get("TableName"),
+                "sse_enabled": item.get("SseEnabled", False),
+                "point_in_time_recovery_enabled": item.get("PointInTimeRecoveryEnabled", False),
+                "deletion_protection_enabled": item.get("DeletionProtectionEnabled", False),
+            }
+            tags = {}
+        elif provider_type == "aws_elasticache_replication_group":
+            region = item.get("Region")
+            resource_id = item.get("ARN") or item["ReplicationGroupId"]
+            properties = {
+                "replication_group_id": item.get("ReplicationGroupId"),
+                "at_rest_encryption_enabled": item.get("AtRestEncryptionEnabled", False),
+                "transit_encryption_enabled": item.get("TransitEncryptionEnabled", False),
             }
             tags = {}
         elif provider_type == "aws_efs_file_system":
@@ -251,9 +310,100 @@ def normalize_bronze(
                 "allows_unrestricted_admin_ports_ipv6": item.get(
                     "AllowsUnrestrictedAdminPortsIpv6", False
                 ),
+                "allows_ssh_from_internet_ipv4": item.get("AllowsSshFromInternetIpv4", False),
+                "allows_rdp_from_internet_ipv4": item.get("AllowsRdpFromInternetIpv4", False),
+                "allows_all_traffic_from_internet_ipv4": item.get(
+                    "AllowsAllTrafficFromInternetIpv4", False
+                ),
+                "allows_all_traffic_from_internet_ipv6": item.get(
+                    "AllowsAllTrafficFromInternetIpv6", False
+                ),
+                "allows_postgres_from_internet_ipv4": item.get(
+                    "AllowsPostgresFromInternetIpv4", False
+                ),
+                "allows_mysql_from_internet_ipv4": item.get("AllowsMysqlFromInternetIpv4", False),
+                "allows_redis_from_internet_ipv4": item.get("AllowsRedisFromInternetIpv4", False),
+                "allows_mongodb_from_internet_ipv4": item.get(
+                    "AllowsMongodbFromInternetIpv4", False
+                ),
+                "allows_elasticsearch_from_internet_ipv4": item.get(
+                    "AllowsElasticsearchFromInternetIpv4", False
+                ),
+                "allows_ftp_from_internet_ipv4": item.get("AllowsFtpFromInternetIpv4", False),
+                "allows_telnet_from_internet_ipv4": item.get("AllowsTelnetFromInternetIpv4", False),
                 "default_allows_unrestricted_ingress": item.get(
                     "DefaultAllowsUnrestrictedIngress", False
                 ),
+            }
+            tags = {}
+        elif provider_type == "aws_ec2_ami":
+            region = item.get("Region")
+            image_id = item["ImageId"]
+            resource_id = f"arn:aws:ec2:{region}:{account_id}:image/{image_id}"
+            properties = {
+                "image_id": image_id,
+                "name": item.get("Name"),
+                "public": item.get("Public", False),
+                "root_unencrypted": item.get("RootUnencrypted", False),
+            }
+            tags = {}
+        elif provider_type == "aws_ebs_snapshot":
+            region = item.get("Region")
+            snapshot_id = item["SnapshotId"]
+            resource_id = f"arn:aws:ec2:{region}:{account_id}:snapshot/{snapshot_id}"
+            properties = {
+                "snapshot_id": snapshot_id,
+                "encrypted": item.get("Encrypted", False),
+                "public": item.get("Public", False),
+                "state": item.get("State"),
+            }
+            tags = {}
+        elif provider_type == "aws_ec2_account_setting":
+            region = item.get("Region")
+            resource_id = f"arn:aws:ec2:{region}:{account_id}:account-settings/ec2"
+            properties = {
+                "region": region,
+                "serial_console_access_enabled": item.get("SerialConsoleAccessEnabled", False),
+                "has_default_vpc": item.get("HasDefaultVpc", False),
+            }
+            tags = {}
+        elif provider_type == "aws_lambda_function":
+            region = item.get("Region")
+            function_name = item["FunctionName"]
+            resource_id = item["FunctionArn"]
+            properties = {
+                "function_name": function_name,
+                "runtime": item.get("Runtime"),
+                "runtime_deprecated": item.get("RuntimeDeprecated", False),
+                "tracing_mode": item.get("TracingMode"),
+                "has_dead_letter_queue": item.get("HasDeadLetterQueue", False),
+                "publicly_accessible": item.get("PubliclyAccessible", False),
+                "function_url_auth_none": item.get("FunctionUrlAuthNone", False),
+            }
+            tags = {}
+        elif provider_type == "aws_guardduty_detector":
+            region = item.get("Region")
+            detector_id = item.get("DetectorId") or "none"
+            resource_id = f"arn:aws:guardduty:{region}:{account_id}:detector/{detector_id}"
+            properties = {
+                "region": region,
+                "detector_id": item.get("DetectorId"),
+                "enabled": item.get("Enabled", False),
+                "s3_protection_enabled": item.get("S3ProtectionEnabled", False),
+                "lambda_protection_enabled": item.get("LambdaProtectionEnabled", False),
+                "eks_audit_logs_enabled": item.get("EksAuditLogsEnabled", False),
+                "rds_login_events_enabled": item.get("RdsLoginEventsEnabled", False),
+            }
+            tags = {}
+        elif provider_type == "aws_ebs_volume":
+            region = item.get("Region")
+            volume_id = item["VolumeId"]
+            resource_id = f"arn:aws:ec2:{region}:{account_id}:volume/{volume_id}"
+            properties = {
+                "volume_id": volume_id,
+                "encrypted": item.get("Encrypted", False),
+                "state": item.get("State"),
+                "size_gb": item.get("Size"),
             }
             tags = {}
         elif provider_type == "aws_ec2_network_acl":

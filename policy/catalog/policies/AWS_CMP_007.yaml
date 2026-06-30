@@ -1,0 +1,37 @@
+policy_id: AWS_CMP_007
+title: GuardDuty S3 data event protection must be enabled
+provider: aws
+resource_type: security.detector
+provider_type: aws_guardduty_detector
+severity: medium
+description: GuardDuty S3 data event protection must be enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.enabled
+      operator: eq
+      expected: true
+    - type: field_check
+      path: properties.s3_protection_enabled
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.region
+- properties.s3_protection_enabled
+remediation:
+  headline: GuardDuty S3 protection disabled
+  risk_summary: GuardDuty S3 data event protection must be enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: GuardDuty S3 data event protection must be enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST SI-4
+  - NIST AU-2
+  - SOC2 CC7.1
+display_title: GuardDuty S3 protection disabled
+pack_id: pack_aws_compute_security

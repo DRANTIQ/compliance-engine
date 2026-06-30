@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_016
+title: DynamoDB tables must enable point-in-time recovery
+provider: aws
+resource_type: database.table
+provider_type: aws_dynamodb_table
+severity: medium
+description: DynamoDB tables must enable point-in-time recovery
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.point_in_time_recovery_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.table_name
+- properties.point_in_time_recovery_enabled
+remediation:
+  headline: DynamoDB point-in-time recovery disabled
+  risk_summary: DynamoDB tables must enable point-in-time recovery
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: DynamoDB tables must enable point-in-time recovery'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST CP-2
+  - NIST SC-28
+  - SOC2 CC8.1
+display_title: DynamoDB point-in-time recovery disabled
+pack_id: pack_aws_data

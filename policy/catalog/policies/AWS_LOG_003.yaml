@@ -14,9 +14,8 @@ logic:
 evidence_fields:
 - properties.name
 - properties.kms_key_id
-cis_control_id: '4.5'
 remediation:
-  headline: CloudTrail logs must use KMS encryption
+  headline: CloudTrail logs not KMS encrypted
   risk_summary: CloudTrail trails must encrypt logs with a KMS key (CIS 4.5).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
     failure.
@@ -24,3 +23,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 4.5
+  - SOC2 CC7.1
+display_title: CloudTrail logs not KMS encrypted
+pack_id: pack_aws_logging

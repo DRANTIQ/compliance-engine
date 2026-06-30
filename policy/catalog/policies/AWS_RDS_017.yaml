@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_017
+title: DynamoDB tables must have deletion protection enabled
+provider: aws
+resource_type: database.table
+provider_type: aws_dynamodb_table
+severity: medium
+description: DynamoDB tables must have deletion protection enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.deletion_protection_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.table_name
+- properties.deletion_protection_enabled
+remediation:
+  headline: DynamoDB deletion protection disabled
+  risk_summary: DynamoDB tables must have deletion protection enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: DynamoDB tables must have deletion protection enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST CP-2
+  - NIST CM-2
+  - SOC2 CC8.1
+display_title: DynamoDB deletion protection disabled
+pack_id: pack_aws_data

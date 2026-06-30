@@ -1,0 +1,30 @@
+policy_id: AWS_CMP_003
+title: Lambda function must have active X-Ray tracing
+provider: aws
+resource_type: compute.function
+provider_type: aws_lambda_function
+severity: medium
+description: Lambda function must have active X-Ray tracing
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.tracing_mode
+    operator: ne
+    expected: Active
+evidence_fields:
+- properties.function_name
+- properties.tracing_mode
+remediation:
+  headline: Lambda function tracing disabled
+  risk_summary: Lambda function must have active X-Ray tracing
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Lambda function must have active X-Ray tracing'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST AU-12
+  - NIST SI-4
+  - SOC2 CC7.2
+display_title: Lambda function tracing disabled
+pack_id: pack_aws_compute_security

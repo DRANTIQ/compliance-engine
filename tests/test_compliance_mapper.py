@@ -65,6 +65,34 @@ def test_control_not_assessed_without_mapping() -> None:
     assert agg.status == "not_assessed"
 
 
+def test_manual_control_always_manual_even_with_policy_mappings() -> None:
+    control = {
+        "framework_id": "nist_800_53_rev5_aws",
+        "control_id": "AC-1",
+        "title": "NIST 800-53 AC-1",
+        "display_title": "Access control policy and procedures",
+        "domain": "access",
+        "severity": "medium",
+        "assessment_type": "manual",
+        "mapped_policy_ids": ["AWS_IAM_001"],
+    }
+    findings = {
+        "AWS_IAM_001": [
+            {
+                "id": "f1",
+                "result": "fail",
+                "resource_id": "a",
+                "severity": "high",
+                "title": "t",
+                "evidence": {},
+            }
+        ],
+    }
+    agg = _aggregate_control(control, findings)
+    assert agg.status == "manual"
+    assert agg.mapped_policy_ids == ["AWS_IAM_001"]
+
+
 def test_score_only_counts_assessed_controls() -> None:
     aggregates = [
         _aggregate_control(

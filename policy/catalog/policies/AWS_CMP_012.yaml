@@ -1,0 +1,38 @@
+policy_id: AWS_CMP_012
+title: Running EC2 instances should have detailed monitoring enabled
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: low
+description: Running EC2 instances should have detailed monitoring enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: eq
+      expected: running
+    - type: field_check
+      path: properties.detailed_monitoring
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.instance_id
+- properties.detailed_monitoring
+remediation:
+  headline: EC2 detailed monitoring disabled
+  risk_summary: Running EC2 instances should have detailed monitoring enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Running EC2 instances should have detailed monitoring
+    enabled'
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - NIST AU-12
+  - NIST SI-4
+  - SOC2 CC7.3
+display_title: EC2 detailed monitoring disabled
+pack_id: pack_aws_compute_security

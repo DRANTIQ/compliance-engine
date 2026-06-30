@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_011
+title: RDS snapshots must not be publicly shared
+provider: aws
+resource_type: database.snapshot
+provider_type: aws_rds_snapshot
+severity: critical
+description: RDS snapshots must not be publicly shared
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.public
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.db_snapshot_identifier
+- properties.public
+remediation:
+  headline: Public RDS snapshot detected
+  risk_summary: RDS snapshots must not be publicly shared
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS snapshots must not be publicly shared'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-3
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: Public RDS snapshot detected
+pack_id: pack_aws_data

@@ -1,0 +1,31 @@
+policy_id: AWS_EC2_010
+title: AWS default VPC should not be used for production workloads
+provider: aws
+resource_type: identity.account
+provider_type: aws_ec2_account_setting
+severity: low
+description: AWS default VPC should not be used for production workloads
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_default_vpc
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.region
+- properties.has_default_vpc
+remediation:
+  headline: Default VPC present in region
+  risk_summary: AWS default VPC should not be used for production workloads
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: AWS default VPC should not be used for production
+    workloads'
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - NIST SC-7
+  - NIST CM-2
+  - SOC2 CC6.4
+display_title: Default VPC present in region
+pack_id: pack_aws_compute

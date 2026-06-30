@@ -1,0 +1,30 @@
+policy_id: AWS_EC2_007
+title: EBS snapshots must not be publicly shared
+provider: aws
+resource_type: storage.snapshot
+provider_type: aws_ebs_snapshot
+severity: critical
+description: EBS snapshots must not be publicly shared
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.public
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.snapshot_id
+- properties.public
+remediation:
+  headline: Public EBS snapshot detected
+  risk_summary: EBS snapshots must not be publicly shared
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EBS snapshots must not be publicly shared'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-3
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: Public EBS snapshot detected
+pack_id: pack_aws_compute

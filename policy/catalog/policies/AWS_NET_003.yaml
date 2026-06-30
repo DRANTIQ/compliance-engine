@@ -16,7 +16,6 @@ logic:
 evidence_fields:
 - properties.network_acl_id
 - properties.allows_unrestricted_admin_ports
-cis_control_id: '6.2'
 remediation:
   headline: Network ACL allows unrestricted admin ports
   risk_summary: Administrative ports may be reachable from the internet.
@@ -26,3 +25,6 @@ remediation:
   framework_mappings:
   - CIS 6.2
   - NIST SC-7
+  - SOC2 CC6.4
+display_title: NACL allows unrestricted admin ports
+pack_id: pack_aws_network

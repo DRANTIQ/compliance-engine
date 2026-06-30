@@ -1,0 +1,30 @@
+policy_id: AWS_CMP_005
+title: Lambda function must configure a dead letter queue
+provider: aws
+resource_type: compute.function
+provider_type: aws_lambda_function
+severity: medium
+description: Lambda function must configure a dead letter queue
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_dead_letter_queue
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.function_name
+- properties.has_dead_letter_queue
+remediation:
+  headline: Lambda function missing dead letter queue
+  risk_summary: Lambda function must configure a dead letter queue
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Lambda function must configure a dead letter queue'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST SI-4
+  - NIST CP-2
+  - SOC2 CC6.8
+display_title: Lambda function missing dead letter queue
+pack_id: pack_aws_compute_security

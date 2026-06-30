@@ -9,7 +9,7 @@ API_DESCRIPTION = """
 # Platform V2 API
 
 Multi-tenant cloud security platform: AWS inventory collection, policy evaluation,
-findings, and CIS compliance scoring.
+findings, and security assessment scoring.
 
 **Interactive docs:** `/docs` (Swagger UI) · `/redoc` (ReDoc) · `/openapi.json`
 

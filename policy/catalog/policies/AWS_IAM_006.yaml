@@ -16,9 +16,8 @@ logic:
 evidence_fields:
 - properties.user_name
 - properties.has_unused_active_credentials
-cis_control_id: '2.11'
 remediation:
-  headline: Unused IAM credentials must be disabled
+  headline: Unused IAM credentials still active
   risk_summary: Active IAM access keys unused for 45 days or more must be disabled
     (CIS 2.11).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -27,3 +26,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 2.11
+  - SOC2 CC6.2
+display_title: Unused IAM credentials still active
+pack_id: pack_aws_identity

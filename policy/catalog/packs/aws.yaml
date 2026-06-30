@@ -1,0 +1,204 @@
+version: 1.0.0
+packs:
+- pack_id: pack_aws_identity
+  display_title: Identity & access
+  description: IAM users, credentials, password policy, and access analyzer
+  policy_ids:
+  - AWS_IAM_001
+  - AWS_IAM_002
+  - AWS_IAM_003
+  - AWS_IAM_004
+  - AWS_IAM_005
+  - AWS_IAM_006
+  - AWS_IAM_007
+  - AWS_IAM_008
+  - AWS_IAM_009
+  - AWS_IAM_010
+  - AWS_IAM_011
+  - AWS_IAM_012
+  - AWS_IAM_013
+  - AWS_IAM_014
+- pack_id: pack_aws_storage
+  display_title: Storage
+  description: S3 buckets and EFS file systems
+  policy_ids:
+  - AWS_EFS_001
+  - AWS_S3_001
+  - AWS_S3_002
+  - AWS_S3_003
+  - AWS_S3_004
+- pack_id: pack_aws_data
+  display_title: Data services
+  description: RDS, Aurora, DynamoDB, ElastiCache, and database snapshots
+  policy_ids:
+  - AWS_RDS_001
+  - AWS_RDS_002
+  - AWS_RDS_003
+  - AWS_RDS_004
+  - AWS_RDS_005
+  - AWS_RDS_006
+  - AWS_RDS_007
+  - AWS_RDS_008
+  - AWS_RDS_009
+  - AWS_RDS_010
+  - AWS_RDS_011
+  - AWS_RDS_012
+  - AWS_RDS_013
+  - AWS_RDS_014
+  - AWS_RDS_015
+  - AWS_RDS_016
+  - AWS_RDS_017
+  - AWS_RDS_018
+- pack_id: pack_aws_logging
+  display_title: Logging & monitoring
+  description: CloudTrail, Config, KMS, VPC flow logs, Security Hub
+  policy_ids:
+  - AWS_LOG_001
+  - AWS_LOG_002
+  - AWS_LOG_003
+  - AWS_LOG_004
+  - AWS_LOG_005
+  - AWS_LOG_006
+- pack_id: pack_aws_network
+  display_title: Network
+  description: Security groups, NACLs, EBS encryption, EC2 metadata
+  policy_ids:
+  - AWS_NET_001
+  - AWS_NET_002
+  - AWS_NET_003
+  - AWS_NET_004
+  - AWS_NET_005
+  - AWS_NET_006
+  - AWS_NET_007
+- pack_id: pack_aws_compute_security
+  display_title: Compute security
+  description: Lambda, GuardDuty, EC2 exposure, EBS encryption, remote access
+  policy_ids:
+  - AWS_CMP_001
+  - AWS_CMP_002
+  - AWS_CMP_003
+  - AWS_CMP_004
+  - AWS_CMP_005
+  - AWS_CMP_006
+  - AWS_CMP_007
+  - AWS_CMP_008
+  - AWS_CMP_009
+  - AWS_CMP_010
+  - AWS_CMP_011
+  - AWS_CMP_012
+  - AWS_CMP_013
+  - AWS_CMP_014
+  - AWS_CMP_015
+- pack_id: pack_aws_compute
+  display_title: Compute services
+  description: EC2 hardening, AMIs, EBS snapshots, and compute network exposure
+  policy_ids:
+  - AWS_EC2_001
+  - AWS_EC2_002
+  - AWS_EC2_003
+  - AWS_EC2_004
+  - AWS_EC2_005
+  - AWS_EC2_006
+  - AWS_EC2_007
+  - AWS_EC2_008
+  - AWS_EC2_009
+  - AWS_EC2_010
+  - AWS_EC2_011
+  - AWS_EC2_012
+  - AWS_EC2_013
+  - AWS_EC2_014
+  - AWS_EC2_015
+  - AWS_EC2_016
+  - AWS_EC2_017
+  - AWS_EC2_018
+  - AWS_EC2_019
+  - AWS_EC2_020
+- pack_id: pack_aws_core
+  display_title: AWS core security
+  description: All Drantiq AWS security checks (default bundle)
+  policy_ids:
+  - AWS_EFS_001
+  - AWS_IAM_001
+  - AWS_IAM_002
+  - AWS_IAM_003
+  - AWS_IAM_004
+  - AWS_IAM_005
+  - AWS_IAM_006
+  - AWS_IAM_007
+  - AWS_IAM_008
+  - AWS_IAM_009
+  - AWS_IAM_010
+  - AWS_IAM_011
+  - AWS_IAM_012
+  - AWS_IAM_013
+  - AWS_IAM_014
+  - AWS_LOG_001
+  - AWS_LOG_002
+  - AWS_LOG_003
+  - AWS_LOG_004
+  - AWS_LOG_005
+  - AWS_LOG_006
+  - AWS_NET_001
+  - AWS_NET_002
+  - AWS_NET_003
+  - AWS_NET_004
+  - AWS_NET_005
+  - AWS_NET_006
+  - AWS_NET_007
+  - AWS_RDS_001
+  - AWS_RDS_002
+  - AWS_RDS_003
+  - AWS_S3_001
+  - AWS_S3_002
+  - AWS_S3_003
+  - AWS_S3_004
+  - AWS_CMP_001
+  - AWS_CMP_002
+  - AWS_CMP_003
+  - AWS_CMP_004
+  - AWS_CMP_005
+  - AWS_CMP_006
+  - AWS_CMP_007
+  - AWS_CMP_008
+  - AWS_CMP_009
+  - AWS_CMP_010
+  - AWS_CMP_011
+  - AWS_CMP_012
+  - AWS_CMP_013
+  - AWS_CMP_014
+  - AWS_CMP_015
+  - AWS_EC2_001
+  - AWS_EC2_002
+  - AWS_EC2_003
+  - AWS_EC2_004
+  - AWS_EC2_005
+  - AWS_EC2_006
+  - AWS_EC2_007
+  - AWS_EC2_008
+  - AWS_EC2_009
+  - AWS_EC2_010
+  - AWS_EC2_011
+  - AWS_EC2_012
+  - AWS_EC2_013
+  - AWS_EC2_014
+  - AWS_EC2_015
+  - AWS_EC2_016
+  - AWS_EC2_017
+  - AWS_EC2_018
+  - AWS_EC2_019
+  - AWS_EC2_020
+  - AWS_RDS_004
+  - AWS_RDS_005
+  - AWS_RDS_006
+  - AWS_RDS_007
+  - AWS_RDS_008
+  - AWS_RDS_009
+  - AWS_RDS_010
+  - AWS_RDS_011
+  - AWS_RDS_012
+  - AWS_RDS_013
+  - AWS_RDS_014
+  - AWS_RDS_015
+  - AWS_RDS_016
+  - AWS_RDS_017
+  - AWS_RDS_018

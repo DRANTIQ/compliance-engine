@@ -1,0 +1,291 @@
+# P5 Wave 3 — CIS AWS Database Services–aligned checks
+# Reference: compliance-frameworks/cis/aws/database/ (engineering only)
+# Extends pack_aws_data (RDS 001–003 remain from foundations)
+
+version: "1.0.0"
+pack_id: pack_aws_data
+policies:
+  - policy_id: AWS_RDS_004
+    control_ref: rds-backup-retention
+    domain: data
+    severity: medium
+    display_title: RDS backup retention below 7 days
+    title: RDS instances must retain automated backups for at least 7 days
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [CP-2, SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.backup_retention_period
+        operator: lt
+        expected: 7
+    evidence_fields: [properties.db_instance_identifier, properties.backup_retention_period]
+
+  - policy_id: AWS_RDS_005
+    control_ref: rds-single-az
+    domain: data
+    severity: medium
+    display_title: RDS instance not configured for Multi-AZ
+    title: RDS instances should use Multi-AZ for high availability
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [CP-2, SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.multi_az
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_instance_identifier, properties.multi_az]
+
+  - policy_id: AWS_RDS_006
+    control_ref: rds-deletion-protection
+    domain: data
+    severity: high
+    display_title: RDS instance deletion protection disabled
+    title: RDS instances must have deletion protection enabled
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [CP-2, CM-2]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.deletion_protection
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_instance_identifier, properties.deletion_protection]
+
+  - policy_id: AWS_RDS_007
+    control_ref: rds-iam-auth
+    domain: data
+    severity: medium
+    display_title: RDS IAM database authentication disabled
+    title: RDS instances should enable IAM database authentication
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [IA-2, AC-3]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.iam_database_authentication_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_instance_identifier, properties.iam_database_authentication_enabled]
+
+  - policy_id: AWS_RDS_008
+    control_ref: rds-cloudwatch-logs
+    domain: data
+    severity: medium
+    display_title: RDS CloudWatch log exports disabled
+    title: RDS instances must export database logs to CloudWatch
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [AU-12, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.has_cloudwatch_logs_exports
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_instance_identifier, properties.has_cloudwatch_logs_exports]
+
+  - policy_id: AWS_RDS_009
+    control_ref: rds-enhanced-monitoring
+    domain: data
+    severity: low
+    display_title: RDS enhanced monitoring disabled
+    title: RDS instances should enable enhanced monitoring
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [AU-12, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.monitoring_interval
+        operator: eq
+        expected: 0
+    evidence_fields: [properties.db_instance_identifier, properties.monitoring_interval]
+
+  - policy_id: AWS_RDS_010
+    control_ref: rds-performance-insights
+    domain: data
+    severity: low
+    display_title: RDS Performance Insights disabled
+    title: RDS instances should enable Performance Insights
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    nist_mappings: [SI-4, AU-6]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.performance_insights_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_instance_identifier, properties.performance_insights_enabled]
+
+  - policy_id: AWS_RDS_011
+    control_ref: rds-snapshot-public
+    domain: data
+    severity: critical
+    display_title: Public RDS snapshot detected
+    title: RDS snapshots must not be publicly shared
+    resource_type: database.snapshot
+    provider_type: aws_rds_snapshot
+    collector: database
+    nist_mappings: [AC-3, SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.public
+        operator: eq
+        expected: true
+    evidence_fields: [properties.db_snapshot_identifier, properties.public]
+
+  - policy_id: AWS_RDS_012
+    control_ref: rds-snapshot-unencrypted
+    domain: data
+    severity: high
+    display_title: Unencrypted RDS snapshot
+    title: RDS snapshots must be encrypted
+    resource_type: database.snapshot
+    provider_type: aws_rds_snapshot
+    collector: database
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.encrypted
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_snapshot_identifier, properties.encrypted]
+
+  - policy_id: AWS_RDS_013
+    control_ref: rds-cluster-deletion-protection
+    domain: data
+    severity: high
+    display_title: RDS cluster deletion protection disabled
+    title: RDS clusters must have deletion protection enabled
+    resource_type: database.cluster
+    provider_type: aws_rds_cluster
+    collector: database
+    nist_mappings: [CP-2, CM-2]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.deletion_protection
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_cluster_identifier, properties.deletion_protection]
+
+  - policy_id: AWS_RDS_014
+    control_ref: rds-cluster-encryption
+    domain: data
+    severity: high
+    display_title: RDS cluster storage encryption disabled
+    title: RDS clusters must have storage encryption enabled
+    resource_type: database.cluster
+    provider_type: aws_rds_cluster
+    collector: database
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.storage_encrypted
+        operator: eq
+        expected: false
+    evidence_fields: [properties.db_cluster_identifier, properties.storage_encrypted]
+
+  - policy_id: AWS_RDS_015
+    control_ref: dynamodb-encryption
+    domain: data
+    severity: high
+    display_title: DynamoDB table encryption disabled
+    title: DynamoDB tables must have server-side encryption enabled
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.sse_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.table_name, properties.sse_enabled]
+
+  - policy_id: AWS_RDS_016
+    control_ref: dynamodb-pitr
+    domain: data
+    severity: medium
+    display_title: DynamoDB point-in-time recovery disabled
+    title: DynamoDB tables must enable point-in-time recovery
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    nist_mappings: [CP-2, SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.point_in_time_recovery_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.table_name, properties.point_in_time_recovery_enabled]
+
+  - policy_id: AWS_RDS_017
+    control_ref: dynamodb-deletion-protection
+    domain: data
+    severity: medium
+    display_title: DynamoDB deletion protection disabled
+    title: DynamoDB tables must have deletion protection enabled
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    nist_mappings: [CP-2, CM-2]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.deletion_protection_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.table_name, properties.deletion_protection_enabled]
+
+  - policy_id: AWS_RDS_018
+    control_ref: elasticache-encryption-at-rest
+    domain: data
+    severity: high
+    display_title: ElastiCache encryption at rest disabled
+    title: ElastiCache replication groups must encrypt data at rest
+    resource_type: database.cache
+    provider_type: aws_elasticache_replication_group
+    collector: database
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.at_rest_encryption_enabled
+        operator: eq
+        expected: false
+    evidence_fields: [properties.replication_group_id, properties.at_rest_encryption_enabled]

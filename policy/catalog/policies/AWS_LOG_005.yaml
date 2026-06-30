@@ -21,13 +21,15 @@ logic:
 evidence_fields:
 - properties.vpc_id
 - properties.flow_logs_enabled
-cis_control_id: '4.7'
 remediation:
   headline: VPC flow logging disabled
-  risk_summary: Network traffic is not logged — blind to lateral movement.
+  risk_summary: "Network traffic is not logged \u2014 blind to lateral movement."
   business_impact: Attackers could move undetected inside your network.
   fix_summary: Enable VPC Flow Logs on the VPC.
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 4.7
   - NIST AU-12
+  - SOC2 CC7.2
+display_title: VPC flow logs disabled
+pack_id: pack_aws_logging

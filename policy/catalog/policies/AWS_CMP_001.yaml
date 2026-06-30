@@ -1,0 +1,30 @@
+policy_id: AWS_CMP_001
+title: Lambda function must not allow public invocation
+provider: aws
+resource_type: compute.function
+provider_type: aws_lambda_function
+severity: high
+description: Lambda function must not allow public invocation
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.publicly_accessible
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.function_name
+- properties.publicly_accessible
+remediation:
+  headline: Lambda function allows public invocation
+  risk_summary: Lambda function must not allow public invocation
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Lambda function must not allow public invocation'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-3
+  - NIST SI-4
+  - SOC2 CC6.8
+display_title: Lambda function allows public invocation
+pack_id: pack_aws_compute_security

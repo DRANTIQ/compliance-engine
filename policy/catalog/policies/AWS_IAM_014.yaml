@@ -16,7 +16,6 @@ evidence_fields:
 - properties.name
 - properties.status
 - properties.region
-cis_control_id: '2.19'
 remediation:
   headline: IAM Access Analyzer disabled
   risk_summary: Unused access paths may go undetected.
@@ -26,3 +25,6 @@ remediation:
   framework_mappings:
   - CIS 2.19
   - NIST AC-2
+  - SOC2 CC6.1
+display_title: IAM Access Analyzer disabled
+pack_id: pack_aws_identity

@@ -30,22 +30,50 @@ class ComplianceRepository:
     def __init__(self, db: DatabasePool) -> None:
         self._db = db
 
-    async def get_framework(self, framework_id: str) -> dict[str, Any] | None:
+    async def get_framework(
+        self,
+        framework_id: str,
+        *,
+        customer_visible_only: bool = False,
+    ) -> dict[str, Any] | None:
+        if customer_visible_only:
+            row = await self._db.fetchrow_global(
+                """
+                SELECT framework_id, title, display_title, provider, version_label,
+                       enabled, customer_visible, requires_license
+                FROM compliance_v2.frameworks
+                WHERE framework_id = $1 AND enabled = true AND customer_visible = true
+                """,
+                framework_id,
+            )
+        else:
+            row = await self._db.fetchrow_global(
+                """
+                SELECT framework_id, title, display_title, provider, version_label,
+                       enabled, customer_visible, requires_license
+                FROM compliance_v2.frameworks
+                WHERE framework_id = $1 AND enabled = true
+                """,
+                framework_id,
+            )
+        return dict(row) if row else None
+
+    async def is_customer_visible_framework(self, framework_id: str) -> bool:
         row = await self._db.fetchrow_global(
             """
-            SELECT framework_id, title, provider, version_label, enabled
+            SELECT 1
             FROM compliance_v2.frameworks
-            WHERE framework_id = $1 AND enabled = true
+            WHERE framework_id = $1 AND enabled = true AND customer_visible = true
             """,
             framework_id,
         )
-        return dict(row) if row else None
+        return row is not None
 
     async def list_controls(self, framework_id: str) -> list[dict[str, Any]]:
         rows = await self._db.fetch_global(
             """
-            SELECT c.framework_id, c.control_id, c.control_ref, c.title, c.domain,
-                   c.severity, c.assessment_type,
+            SELECT c.framework_id, c.control_id, c.control_ref, c.title, c.display_title,
+                   c.domain, c.severity, c.assessment_type,
                    COALESCE(
                      array_agg(pm.policy_id ORDER BY pm.policy_id)
                        FILTER (WHERE pm.policy_id IS NOT NULL),
@@ -55,7 +83,7 @@ class ComplianceRepository:
             LEFT JOIN compliance_v2.policy_mappings pm
               ON pm.framework_id = c.framework_id AND pm.control_id = c.control_id
             WHERE c.framework_id = $1 AND c.enabled = true
-            GROUP BY c.framework_id, c.control_id, c.control_ref, c.title,
+            GROUP BY c.framework_id, c.control_id, c.control_ref, c.title, c.display_title,
                      c.domain, c.severity, c.assessment_type
             ORDER BY c.control_id
             """,
@@ -183,8 +211,12 @@ class ComplianceRepository:
         tenant_id: UUID,
         scan_id: UUID,
         framework_id: str,
+        *,
+        customer_visible_only: bool = False,
     ) -> dict[str, Any] | None:
-        framework = await self.get_framework(framework_id)
+        framework = await self.get_framework(
+            framework_id, customer_visible_only=customer_visible_only
+        )
         if not framework:
             return None
 
@@ -206,11 +238,15 @@ class ComplianceRepository:
         control_rows = await self._db.fetch(
             tenant_id,
             """
-            SELECT control_id, status, severity, title, domain, mapped_policy_ids,
-                   fail_count, pass_count, finding_ids, evidence, evaluated_at
-            FROM compliance_v2.control_results
-            WHERE tenant_id = $1 AND scan_id = $2 AND framework_id = $3
-            ORDER BY control_id
+            SELECT cr.control_id, cr.status, cr.severity, cr.title, cr.domain,
+                   cr.mapped_policy_ids, cr.fail_count, cr.pass_count, cr.finding_ids,
+                   cr.evidence, cr.evaluated_at,
+                   COALESCE(c.display_title, cr.title) AS display_title
+            FROM compliance_v2.control_results cr
+            LEFT JOIN compliance_v2.controls c
+              ON c.framework_id = cr.framework_id AND c.control_id = cr.control_id
+            WHERE cr.tenant_id = $1 AND cr.scan_id = $2 AND cr.framework_id = $3
+            ORDER BY cr.control_id
             """,
             tenant_id,
             scan_id,
@@ -220,12 +256,15 @@ class ComplianceRepository:
         controls = []
         for row in control_rows:
             evidence = row["evidence"]
+            stored_title = row["title"]
+            display_title = row["display_title"] or stored_title
             controls.append(
                 {
                     "control_id": row["control_id"],
                     "status": row["status"],
                     "severity": row["severity"],
-                    "title": row["title"],
+                    "title": display_title,
+                    "display_title": display_title,
                     "domain": row["domain"],
                     "mapped_policy_ids": list(row["mapped_policy_ids"] or []),
                     "fail_count": row["fail_count"],
@@ -238,31 +277,65 @@ class ComplianceRepository:
                 }
             )
 
+        summary = {
+            "pass": score_row["pass_count"],
+            "fail": score_row["fail_count"],
+            "not_assessed": score_row["not_assessed_count"],
+            "manual": score_row["manual_count"],
+            "error": score_row["error_count"],
+            "total": score_row["total_controls"],
+        }
+        assessed = summary["pass"] + summary["fail"] + summary["error"]
+        automated = assessed
+        coverage = {
+            "total_checks": summary["total"],
+            "assessed": assessed,
+            "automated": automated,
+            "not_assessed": summary["not_assessed"],
+            "manual": summary["manual"],
+            "pass": summary["pass"],
+            "fail": summary["fail"],
+            "pass_rate": round(summary["pass"] / assessed * 100, 1) if assessed else 0.0,
+        }
+
+        framework_title = framework.get("display_title") or framework["title"]
         return {
             "framework_id": framework_id,
-            "framework_title": framework["title"],
+            "framework_title": framework_title,
+            "display_title": framework_title,
             "version_label": framework["version_label"],
             "scan_id": str(scan_id),
             "score": float(score_row["score"]),
-            "summary": {
-                "pass": score_row["pass_count"],
-                "fail": score_row["fail_count"],
-                "not_assessed": score_row["not_assessed_count"],
-                "manual": score_row["manual_count"],
-                "error": score_row["error_count"],
-                "total": score_row["total_controls"],
-            },
+            "summary": summary,
+            "coverage": coverage,
             "evaluated_at": score_row["evaluated_at"].isoformat(),
             "controls": controls,
         }
 
-    async def list_frameworks(self) -> list[dict[str, Any]]:
-        rows = await self._db.fetch_global(
-            """
-            SELECT framework_id, title, provider, version_label
-            FROM compliance_v2.frameworks
-            WHERE enabled = true
-            ORDER BY framework_id
-            """
-        )
-        return [dict(row) for row in rows]
+    async def list_frameworks(self, *, customer_visible_only: bool = True) -> list[dict[str, Any]]:
+        if customer_visible_only:
+            rows = await self._db.fetch_global(
+                """
+                SELECT framework_id, title, display_title, provider, version_label,
+                       customer_visible, requires_license
+                FROM compliance_v2.frameworks
+                WHERE enabled = true AND customer_visible = true
+                ORDER BY framework_id
+                """
+            )
+        else:
+            rows = await self._db.fetch_global(
+                """
+                SELECT framework_id, title, display_title, provider, version_label,
+                       customer_visible, requires_license
+                FROM compliance_v2.frameworks
+                WHERE enabled = true
+                ORDER BY framework_id
+                """
+            )
+        out = []
+        for row in rows:
+            item = dict(row)
+            item["title"] = item.get("display_title") or item["title"]
+            out.append(item)
+        return out

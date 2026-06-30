@@ -40,6 +40,8 @@ def _parse_policy(data: dict[str, Any]) -> PolicyDefinition:
         evidence_fields=list(data.get("evidence_fields", [])),
         remediation=_parse_remediation(data.get("remediation")),
         cis_control_id=data.get("cis_control_id"),
+        display_title=data.get("display_title"),
+        pack_id=data.get("pack_id"),
     )
 
 
@@ -58,6 +60,13 @@ def load_policies(catalog_path: Path) -> list[PolicyDefinition]:
 
 def load_policy_index(catalog_path: Path) -> dict[str, PolicyDefinition]:
     return {p.policy_id: p for p in load_policies(catalog_path)}
+
+
+def load_policy_packs(packs_path: Path) -> list[dict[str, Any]]:
+    if not packs_path.is_file():
+        return []
+    raw = yaml.safe_load(packs_path.read_text(encoding="utf-8")) or {}
+    return list(raw.get("packs") or [])
 
 
 def policy_definition_hash(logic: dict[str, Any]) -> str:

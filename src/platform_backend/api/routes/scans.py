@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from platform_backend.api.deps import get_db_pool, get_scan_service, get_tenant_id, require_write_access
 from platform_backend.api.schemas.customer_experience import FixPriorityItem, ScanRiskSummaryResponse
 from platform_backend.identity.models import PlatformPrincipal
+from platform_backend.compliance.frameworks import CUSTOMER_PRIMARY_FRAMEWORK
 from platform_backend.compliance.repository import ComplianceRepository
 from platform_backend.db.pool import DatabasePool
 from platform_backend.findings.experience import build_fix_priorities, build_risk_summary
@@ -48,7 +49,7 @@ class ScanDetailResponse(ScanResponse):
     description=(
         "Starts a new security scan for the given integration. Enqueues a job on "
         "`platform:collect.aws`; workers collect AWS inventory to S3, ingest assets, "
-        "evaluate policies, and compute CIS score.\n\n"
+        "evaluate policies, and compute security assessment score.\n\n"
         "Requires **tenant_admin** or **super_admin**. Poll **GET /v1/scans/{id}** until "
         "status is `completed`, `completed_with_errors`, or `failed` before reading findings."
     ),
@@ -138,7 +139,7 @@ async def get_findings_repo(db: DatabasePool = Depends(get_db_pool)) -> Findings
     response_model=ScanRiskSummaryResponse,
     summary="Scan risk summary",
     description=(
-        "Customer decision API: severity counts, CIS score, and top risks with "
+        "Customer decision API: severity counts, security score, and top risks with "
         "affected resources and why each issue matters."
     ),
     responses={200: {"description": "Risk summary"}, 404: {"description": "Scan not found"}},
@@ -149,7 +150,7 @@ async def get_scan_risk_summary(
     service: ScanService = Depends(get_scan_service),
     findings: FindingsRepository = Depends(get_findings_repo),
     compliance: ComplianceRepository = Depends(get_compliance_repo),
-    framework_id: str = Query(default="cis_aws_v6"),
+    framework_id: str = Query(default=CUSTOMER_PRIMARY_FRAMEWORK),
     top_n: int = Query(default=5, ge=1, le=20),
 ) -> ScanRiskSummaryResponse:
     scan = await service.get_scan(tenant_id, scan_id)
@@ -157,7 +158,9 @@ async def get_scan_risk_summary(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scan not found")
 
     rows = await findings.list_findings(tenant_id, scan_id, limit=500, offset=0)
-    comp = await compliance.get_scan_compliance(tenant_id, scan_id, framework_id)
+    comp = await compliance.get_scan_compliance(
+        tenant_id, scan_id, framework_id, customer_visible_only=True
+    )
     score = comp.get("score") if comp else None
     summary = build_risk_summary(rows, compliance_score=score, top_n=top_n)
     return ScanRiskSummaryResponse(**summary)
@@ -191,8 +194,11 @@ async def get_scan_fix_priorities(
 
 @router.get(
     "/{scan_id}/compliance",
-    summary="CIS compliance summary",
-    description="Weighted CIS AWS v6 score and control summary for the scan. Same data as compliance framework endpoint, compact shape.",
+    summary="Security assessment summary",
+    description=(
+        "Weighted security assessment score and check summary for the scan. "
+        "Same data as the compliance framework endpoint, compact shape."
+    ),
     responses={200: {"description": "Compliance summary"}, 404: {"description": "Scan or compliance results not found"}},
 )
 async def get_scan_compliance_summary(
@@ -200,12 +206,14 @@ async def get_scan_compliance_summary(
     tenant_id: UUID = Depends(get_tenant_id),
     service: ScanService = Depends(get_scan_service),
     compliance: ComplianceRepository = Depends(get_compliance_repo),
-    framework_id: str = Query(default="cis_aws_v6"),
+    framework_id: str = Query(default=CUSTOMER_PRIMARY_FRAMEWORK),
 ) -> dict:
     scan = await service.get_scan(tenant_id, scan_id)
     if not scan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scan not found")
-    result = await compliance.get_scan_compliance(tenant_id, scan_id, framework_id)
+    result = await compliance.get_scan_compliance(
+        tenant_id, scan_id, framework_id, customer_visible_only=True
+    )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -235,7 +243,7 @@ async def get_inventory_completeness(
 @router.get(
     "/{scan_id}/policy-coverage",
     summary="Policy evaluation coverage",
-    description="Which of the ~35 YAML policies were evaluated vs skipped for this scan.",
+    description="Which YAML policies were evaluated vs skipped for this scan.",
     responses={200: {"description": "Policy coverage report"}, 404: {"description": "Scan not found"}},
 )
 async def get_policy_coverage(

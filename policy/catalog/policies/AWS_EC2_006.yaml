@@ -1,0 +1,29 @@
+policy_id: AWS_EC2_006
+title: AMIs must use encrypted root EBS volumes
+provider: aws
+resource_type: compute.image
+provider_type: aws_ec2_ami
+severity: high
+description: AMIs must use encrypted root EBS volumes
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.root_unencrypted
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.image_id
+- properties.root_unencrypted
+remediation:
+  headline: AMI with unencrypted root volume
+  risk_summary: AMIs must use encrypted root EBS volumes
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: AMIs must use encrypted root EBS volumes'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: AMI with unencrypted root volume
+pack_id: pack_aws_compute

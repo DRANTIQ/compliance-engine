@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.name
 - properties.status_recording
-cis_control_id: '4.3'
 remediation:
   headline: AWS Config disabled
   risk_summary: Configuration changes are not being recorded for audit.
@@ -32,3 +31,6 @@ remediation:
   - CIS 4.3
   - SOC2 CC8.1
   - NIST CM-2
+  - SOC2 CC7.3
+display_title: AWS Config not enabled
+pack_id: pack_aws_logging

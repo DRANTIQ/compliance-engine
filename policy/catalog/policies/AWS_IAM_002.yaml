@@ -30,9 +30,8 @@ evidence_fields:
 - properties.account_id
 - properties.root_password_present
 - properties.root_mfa_enabled
-cis_control_id: '2.4'
 remediation:
-  headline: Root user must have MFA enabled
+  headline: Root account missing MFA
   risk_summary: Ensure MFA is enabled on the root user when a root password exists
     (CIS 2.4).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -41,3 +40,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 2.4
+  - SOC2 CC6.1
+display_title: Root account missing MFA
+pack_id: pack_aws_identity

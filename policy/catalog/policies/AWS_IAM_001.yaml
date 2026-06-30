@@ -15,9 +15,8 @@ logic:
 evidence_fields:
 - properties.account_id
 - properties.root_access_keys_present
-cis_control_id: '2.3'
 remediation:
-  headline: Root user must not have access keys
+  headline: Root account has active access keys
   risk_summary: Ensure the AWS root user does not have active access keys (CIS 2.3).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
     failure.
@@ -25,3 +24,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 2.3
+  - SOC2 CC6.2
+display_title: Root account has active access keys
+pack_id: pack_aws_identity

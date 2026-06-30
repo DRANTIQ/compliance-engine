@@ -15,9 +15,8 @@ logic:
 evidence_fields:
 - properties.user_name
 - properties.has_stale_active_access_key
-cis_control_id: '2.13'
 remediation:
-  headline: IAM access keys must be rotated within 90 days
+  headline: Stale IAM access key detected
   risk_summary: Active IAM access keys older than 90 days must be rotated (CIS 2.13).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
     failure.
@@ -25,3 +24,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 2.13
+  - SOC2 CC6.2
+display_title: Stale IAM access key detected
+pack_id: pack_aws_identity

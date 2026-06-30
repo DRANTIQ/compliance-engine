@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.name
 - properties.cloudtrail_s3_write_logging
-cis_control_id: '4.8'
 remediation:
   headline: S3 write events not logged
   risk_summary: Object uploads and modifications may go unrecorded.
@@ -30,3 +29,6 @@ remediation:
   estimated_fix_minutes: 10
   framework_mappings:
   - CIS 4.8
+  - SOC2 CC7.2
+display_title: S3 write activity not logged
+pack_id: pack_aws_storage

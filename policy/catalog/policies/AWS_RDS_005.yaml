@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_005
+title: RDS instances should use Multi-AZ for high availability
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: medium
+description: RDS instances should use Multi-AZ for high availability
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.multi_az
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_instance_identifier
+- properties.multi_az
+remediation:
+  headline: RDS instance not configured for Multi-AZ
+  risk_summary: RDS instances should use Multi-AZ for high availability
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances should use Multi-AZ for high availability'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST CP-2
+  - NIST SC-28
+  - SOC2 CC8.1
+display_title: RDS instance not configured for Multi-AZ
+pack_id: pack_aws_data

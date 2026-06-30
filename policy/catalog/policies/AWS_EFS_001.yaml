@@ -15,9 +15,8 @@ logic:
 evidence_fields:
 - properties.file_system_id
 - properties.encrypted
-cis_control_id: 3.3.1
 remediation:
-  headline: EFS file systems must be encrypted
+  headline: EFS encryption disabled
   risk_summary: Amazon EFS file systems must be encrypted at rest (CIS 3.3.1).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
     failure.
@@ -25,3 +24,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 3.3.1
+  - SOC2 CC6.7
+display_title: EFS encryption disabled
+pack_id: pack_aws_storage

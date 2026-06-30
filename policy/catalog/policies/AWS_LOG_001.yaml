@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.name
 - properties.log_file_validation_enabled
-cis_control_id: '4.2'
 remediation:
   headline: CloudTrail log validation disabled
   risk_summary: CloudTrail logs cannot be verified for tampering.
@@ -33,3 +32,5 @@ remediation:
   - SOC2 CC7.2
   - NIST AU-9
   aws_cli: aws cloudtrail update-trail --name {trail_name} --enable-log-file-validation
+display_title: CloudTrail log validation disabled
+pack_id: pack_aws_logging

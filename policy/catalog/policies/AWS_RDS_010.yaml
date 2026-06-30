@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_010
+title: RDS instances should enable Performance Insights
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: low
+description: RDS instances should enable Performance Insights
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.performance_insights_enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_instance_identifier
+- properties.performance_insights_enabled
+remediation:
+  headline: RDS Performance Insights disabled
+  risk_summary: RDS instances should enable Performance Insights
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances should enable Performance Insights'
+  estimated_fix_minutes: 2
+  framework_mappings:
+  - NIST SI-4
+  - NIST AU-6
+  - SOC2 CC7.2
+display_title: RDS Performance Insights disabled
+pack_id: pack_aws_data

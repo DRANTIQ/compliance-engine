@@ -21,9 +21,8 @@ logic:
 evidence_fields:
 - properties.key_id
 - properties.key_rotation_enabled
-cis_control_id: '4.6'
 remediation:
-  headline: KMS key rotation must be enabled
+  headline: KMS key rotation disabled
   risk_summary: Customer-managed KMS keys must have automatic rotation enabled (CIS
     4.6).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -32,3 +31,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 4.6
+  - SOC2 CC7.1
+display_title: KMS key rotation disabled
+pack_id: pack_aws_logging

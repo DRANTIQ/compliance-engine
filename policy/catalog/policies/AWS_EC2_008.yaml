@@ -1,0 +1,29 @@
+policy_id: AWS_EC2_008
+title: EBS snapshots must be encrypted
+provider: aws
+resource_type: storage.snapshot
+provider_type: aws_ebs_snapshot
+severity: high
+description: EBS snapshots must be encrypted
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.encrypted
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.snapshot_id
+- properties.encrypted
+remediation:
+  headline: Unencrypted EBS snapshot
+  risk_summary: EBS snapshots must be encrypted
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EBS snapshots must be encrypted'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: Unencrypted EBS snapshot
+pack_id: pack_aws_compute

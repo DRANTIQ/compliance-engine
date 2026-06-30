@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.region
 - properties.enabled
-cis_control_id: '5.16'
 remediation:
   headline: AWS Security Hub disabled
   risk_summary: Centralized security findings are not aggregated.
@@ -31,3 +30,6 @@ remediation:
   framework_mappings:
   - CIS 5.16
   - NIST SI-4
+  - SOC2 CC7.3
+display_title: Security Hub not enabled
+pack_id: pack_aws_logging

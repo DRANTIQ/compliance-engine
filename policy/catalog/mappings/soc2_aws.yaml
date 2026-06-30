@@ -1,0 +1,205 @@
+# SOC 2 Trust Services Criteria — AWS technical mapping (P5 W4)
+# Paraphrased display_title values — not verbatim AICPA TSC text.
+# Engineering hints: Steampipe soc2_aws queries + Turbot mod CC6–CC8 patterns.
+# Generated/maintained by compliance-engine/scripts/build_policy_catalog.py
+
+framework_id: soc2_aws
+version: '2017'
+controls:
+- control_id: CC1.1
+  display_title: Control environment and governance
+  title: SOC 2 CC1.1
+  domain: governance
+  severity: medium
+  assessment_type: manual
+  policy_ids: []
+- control_id: CC2.1
+  display_title: Communication of objectives
+  title: SOC 2 CC2.1
+  domain: governance
+  severity: medium
+  assessment_type: manual
+  policy_ids: []
+- control_id: CC6.1
+  display_title: Restrict privileged logical access
+  title: SOC 2 CC6.1
+  domain: access
+  severity: critical
+  assessment_type: automated
+  policy_ids:
+  - AWS_IAM_002
+  - AWS_IAM_011
+  - AWS_IAM_014
+- control_id: CC6.2
+  display_title: Credential issuance and lifecycle
+  title: SOC 2 CC6.2
+  domain: access
+  severity: critical
+  assessment_type: automated
+  policy_ids:
+  - AWS_IAM_001
+  - AWS_IAM_006
+  - AWS_IAM_007
+  - AWS_IAM_008
+- control_id: CC6.3
+  display_title: User registration and authorization
+  title: SOC 2 CC6.3
+  domain: access
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_IAM_005
+  - AWS_IAM_009
+  - AWS_IAM_010
+- control_id: CC6.4
+  display_title: Restrict logical access to assets
+  title: SOC 2 CC6.4
+  domain: access
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_IAM_012
+  - AWS_NET_002
+  - AWS_NET_003
+  - AWS_NET_004
+  - AWS_NET_005
+  - AWS_NET_006
+  - AWS_NET_007
+  - AWS_RDS_003
+  - AWS_CMP_010
+  - AWS_CMP_013
+  - AWS_CMP_014
+  - AWS_CMP_015
+  - AWS_EC2_004
+  - AWS_EC2_010
+  - AWS_EC2_011
+  - AWS_EC2_012
+  - AWS_EC2_013
+  - AWS_EC2_014
+  - AWS_EC2_015
+  - AWS_EC2_016
+  - AWS_EC2_017
+  - AWS_EC2_018
+  - AWS_EC2_019
+  - AWS_RDS_013
+- control_id: CC6.6
+  display_title: Credential and access restriction
+  title: SOC 2 CC6.6
+  domain: access
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_IAM_003
+  - AWS_IAM_004
+  - AWS_IAM_013
+  - AWS_S3_001
+  - AWS_S3_002
+- control_id: CC6.7
+  display_title: Protect data in transit and at rest
+  title: SOC 2 CC6.7
+  domain: crypto
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_EFS_001
+  - AWS_NET_001
+  - AWS_RDS_001
+  - AWS_CMP_011
+  - AWS_EC2_006
+  - AWS_EC2_007
+  - AWS_EC2_008
+  - AWS_RDS_011
+  - AWS_RDS_012
+  - AWS_RDS_014
+  - AWS_RDS_015
+  - AWS_RDS_018
+- control_id: CC6.8
+  display_title: Prevent unauthorized software and configuration
+  title: SOC 2 CC6.8
+  domain: integrity
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_CMP_001
+  - AWS_CMP_002
+  - AWS_CMP_004
+  - AWS_CMP_005
+  - AWS_EC2_001
+  - AWS_EC2_002
+  - AWS_EC2_003
+  - AWS_EC2_020
+- control_id: CC7.1
+  display_title: Detect security events
+  title: SOC 2 CC7.1
+  domain: monitoring
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_LOG_003
+  - AWS_LOG_004
+  - AWS_CMP_006
+  - AWS_CMP_007
+  - AWS_CMP_008
+  - AWS_CMP_009
+- control_id: CC7.2
+  display_title: Monitor system components
+  title: SOC 2 CC7.2
+  domain: monitoring
+  severity: high
+  assessment_type: automated
+  policy_ids:
+  - AWS_LOG_001
+  - AWS_LOG_005
+  - AWS_S3_003
+  - AWS_S3_004
+  - AWS_CMP_003
+  - AWS_RDS_008
+  - AWS_RDS_009
+  - AWS_RDS_010
+- control_id: CC7.3
+  display_title: Evaluate and remediate deficiencies
+  title: SOC 2 CC7.3
+  domain: monitoring
+  severity: medium
+  assessment_type: automated
+  policy_ids:
+  - AWS_LOG_002
+  - AWS_LOG_006
+  - AWS_CMP_012
+  - AWS_EC2_005
+  - AWS_EC2_009
+  - AWS_EC2_012
+- control_id: CC7.4
+  display_title: Incident response procedures
+  title: SOC 2 CC7.4
+  domain: incident
+  severity: medium
+  assessment_type: manual
+  policy_ids: []
+- control_id: CC8.1
+  display_title: Change management and configuration baseline
+  title: SOC 2 CC8.1
+  domain: operations
+  severity: medium
+  assessment_type: automated
+  policy_ids:
+  - AWS_LOG_002
+  - AWS_RDS_002
+  - AWS_CMP_002
+  - AWS_EC2_014
+  - AWS_EC2_015
+  - AWS_EC2_016
+  - AWS_EC2_017
+  - AWS_RDS_004
+  - AWS_RDS_005
+  - AWS_RDS_006
+  - AWS_RDS_007
+  - AWS_RDS_016
+  - AWS_RDS_017
+- control_id: CC9.1
+  display_title: Risk identification and mitigation
+  title: SOC 2 CC9.1
+  domain: risk
+  severity: medium
+  assessment_type: manual
+  policy_ids: []

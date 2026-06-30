@@ -22,9 +22,8 @@ logic:
 evidence_fields:
 - properties.account_id
 - properties.minimum_password_length
-cis_control_id: '2.7'
 remediation:
-  headline: IAM password policy minimum length
+  headline: Weak IAM password length policy
   risk_summary: IAM password policy must require a minimum length of at least 14 characters
     (CIS 2.7).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -33,3 +32,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 2.7
+  - SOC2 CC6.6
+display_title: Weak IAM password length policy
+pack_id: pack_aws_identity

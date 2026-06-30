@@ -17,9 +17,8 @@ evidence_fields:
 - properties.group_id
 - properties.group_name
 - properties.allows_unrestricted_cifs
-cis_control_id: 6.1.2
 remediation:
-  headline: CIFS access must be restricted
+  headline: Unrestricted CIFS in security group
   risk_summary: Security groups must not allow unrestricted CIFS (port 445) access
     (CIS 6.1.2).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -28,3 +27,6 @@ remediation:
   estimated_fix_minutes: 3
   framework_mappings:
   - CIS 6.1.2
+  - SOC2 CC6.4
+display_title: Unrestricted CIFS in security group
+pack_id: pack_aws_network

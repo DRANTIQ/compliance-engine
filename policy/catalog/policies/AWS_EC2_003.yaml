@@ -1,0 +1,43 @@
+policy_id: AWS_EC2_003
+title: EC2 instances must require IMDSv2 when metadata endpoint is enabled
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: high
+description: EC2 instances must require IMDSv2 when metadata endpoint is enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: ne
+      expected: terminated
+    - type: field_check
+      path: properties.http_endpoint
+      operator: eq
+      expected: enabled
+    - type: field_check
+      path: properties.http_tokens
+      operator: ne
+      expected: required
+evidence_fields:
+- properties.instance_id
+- properties.http_tokens
+- properties.http_endpoint
+remediation:
+  headline: EC2 instance allows optional IMDSv2 tokens
+  risk_summary: EC2 instances must require IMDSv2 when metadata endpoint is enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EC2 instances must require IMDSv2 when metadata
+    endpoint is enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.8
+display_title: EC2 instance allows optional IMDSv2 tokens
+pack_id: pack_aws_compute

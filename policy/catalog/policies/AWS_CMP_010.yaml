@@ -1,0 +1,37 @@
+policy_id: AWS_CMP_010
+title: EC2 instances should not have a public IP address
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: high
+description: EC2 instances should not have a public IP address
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: ne
+      expected: terminated
+    - type: field_check
+      path: properties.has_public_ip
+      operator: eq
+      expected: true
+evidence_fields:
+- properties.instance_id
+- properties.has_public_ip
+remediation:
+  headline: EC2 instance has a public IP address
+  risk_summary: EC2 instances should not have a public IP address
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: EC2 instances should not have a public IP address'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+display_title: EC2 instance has a public IP address
+pack_id: pack_aws_compute_security

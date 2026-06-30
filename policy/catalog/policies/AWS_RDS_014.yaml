@@ -1,0 +1,29 @@
+policy_id: AWS_RDS_014
+title: RDS clusters must have storage encryption enabled
+provider: aws
+resource_type: database.cluster
+provider_type: aws_rds_cluster
+severity: high
+description: RDS clusters must have storage encryption enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.storage_encrypted
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_cluster_identifier
+- properties.storage_encrypted
+remediation:
+  headline: RDS cluster storage encryption disabled
+  risk_summary: RDS clusters must have storage encryption enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS clusters must have storage encryption enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: RDS cluster storage encryption disabled
+pack_id: pack_aws_data

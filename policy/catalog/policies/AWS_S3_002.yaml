@@ -30,7 +30,6 @@ logic:
 evidence_fields:
 - properties.name
 - properties.public_access_block
-cis_control_id: 3.1.4
 remediation:
   headline: Public S3 bucket detected
   risk_summary: Anyone on the internet may be able to access data in this bucket.
@@ -50,3 +49,5 @@ remediation:
   cloudformation: "Type: AWS::S3::BucketPublicAccessBlock\nProperties:\n  Bucket:\
     \ {bucket_name}\n  BlockPublicAcls: true\n  BlockPublicPolicy: true\n  IgnorePublicAcls:\
     \ true\n  RestrictPublicBuckets: true"
+display_title: Public S3 bucket detected
+pack_id: pack_aws_storage

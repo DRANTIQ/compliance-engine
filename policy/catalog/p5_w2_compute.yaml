@@ -1,0 +1,425 @@
+# P5 Wave 2 — CIS AWS Compute Services–aligned checks (EC2, AMI, EBS, SG)
+# Reference: compliance-frameworks/cis/aws/compute/ (engineering only)
+# Generated into policy/catalog/policies/AWS_EC2_*.yaml by build_policy_catalog.py
+
+version: "1.0.0"
+pack_id: pack_aws_compute
+policies:
+  - policy_id: AWS_EC2_001
+    control_ref: ec2-termination-protection
+    domain: compute
+    severity: medium
+    display_title: EC2 instance without termination protection
+    title: Running EC2 instances must have termination protection enabled
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [CM-2, CP-2]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: eq
+            expected: running
+          - type: field_check
+            path: properties.termination_protected
+            operator: eq
+            expected: false
+    evidence_fields: [properties.instance_id, properties.termination_protected]
+
+  - policy_id: AWS_EC2_002
+    control_ref: ec2-imds-hop-limit
+    domain: compute
+    severity: high
+    display_title: EC2 IMDS hop limit allows container SSRF
+    title: EC2 IMDS hop limit must not exceed 1
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: ne
+            expected: terminated
+          - type: field_check
+            path: properties.http_put_response_hop_limit
+            operator: gt
+            expected: 1
+    evidence_fields: [properties.instance_id, properties.http_put_response_hop_limit]
+
+  - policy_id: AWS_EC2_003
+    control_ref: ec2-imds-optional-tokens
+    domain: compute
+    severity: high
+    display_title: EC2 instance allows optional IMDSv2 tokens
+    title: EC2 instances must require IMDSv2 when metadata endpoint is enabled
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: ne
+            expected: terminated
+          - type: field_check
+            path: properties.http_endpoint
+            operator: eq
+            expected: enabled
+          - type: field_check
+            path: properties.http_tokens
+            operator: ne
+            expected: required
+    evidence_fields: [properties.instance_id, properties.http_tokens, properties.http_endpoint]
+
+  - policy_id: AWS_EC2_004
+    control_ref: ec2-source-dest-check
+    domain: network
+    severity: medium
+    display_title: EC2 source/destination check disabled
+    title: EC2 instances must not disable source/destination checks
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: eq
+            expected: running
+          - type: field_check
+            path: properties.source_dest_check
+            operator: eq
+            expected: false
+    evidence_fields: [properties.instance_id, properties.source_dest_check]
+
+  - policy_id: AWS_EC2_005
+    control_ref: ami-public
+    domain: compute
+    severity: critical
+    display_title: Public AMI owned by account
+    title: Account-owned AMIs must not be public
+    resource_type: compute.image
+    provider_type: aws_ec2_ami
+    collector: compute
+    nist_mappings: [AC-3, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.public
+        operator: eq
+        expected: true
+    evidence_fields: [properties.image_id, properties.public]
+
+  - policy_id: AWS_EC2_006
+    control_ref: ami-unencrypted-root
+    domain: compute
+    severity: high
+    display_title: AMI with unencrypted root volume
+    title: AMIs must use encrypted root EBS volumes
+    resource_type: compute.image
+    provider_type: aws_ec2_ami
+    collector: compute
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.root_unencrypted
+        operator: eq
+        expected: true
+    evidence_fields: [properties.image_id, properties.root_unencrypted]
+
+  - policy_id: AWS_EC2_007
+    control_ref: ebs-snapshot-public
+    domain: storage
+    severity: critical
+    display_title: Public EBS snapshot detected
+    title: EBS snapshots must not be publicly shared
+    resource_type: storage.snapshot
+    provider_type: aws_ebs_snapshot
+    collector: compute
+    nist_mappings: [AC-3, SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.public
+        operator: eq
+        expected: true
+    evidence_fields: [properties.snapshot_id, properties.public]
+
+  - policy_id: AWS_EC2_008
+    control_ref: ebs-snapshot-unencrypted
+    domain: storage
+    severity: high
+    display_title: Unencrypted EBS snapshot
+    title: EBS snapshots must be encrypted
+    resource_type: storage.snapshot
+    provider_type: aws_ebs_snapshot
+    collector: compute
+    nist_mappings: [SC-28]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.encrypted
+        operator: eq
+        expected: false
+    evidence_fields: [properties.snapshot_id, properties.encrypted]
+
+  - policy_id: AWS_EC2_009
+    control_ref: ec2-serial-console
+    domain: compute
+    severity: medium
+    display_title: EC2 serial console access enabled
+    title: EC2 serial console access must be disabled
+    resource_type: identity.account
+    provider_type: aws_ec2_account_setting
+    collector: compute
+    nist_mappings: [AC-17, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.serial_console_access_enabled
+        operator: eq
+        expected: true
+    evidence_fields: [properties.region, properties.serial_console_access_enabled]
+
+  - policy_id: AWS_EC2_010
+    control_ref: default-vpc-in-use
+    domain: network
+    severity: low
+    display_title: Default VPC present in region
+    title: AWS default VPC should not be used for production workloads
+    resource_type: identity.account
+    provider_type: aws_ec2_account_setting
+    collector: compute
+    nist_mappings: [SC-7, CM-2]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.has_default_vpc
+        operator: eq
+        expected: true
+    evidence_fields: [properties.region, properties.has_default_vpc]
+
+  - policy_id: AWS_EC2_011
+    control_ref: sg-all-traffic-ipv4
+    domain: network
+    severity: critical
+    display_title: Security group allows all traffic from the internet (IPv4)
+    title: Security groups must not allow all protocols from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_all_traffic_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_all_traffic_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_012
+    control_ref: sg-all-traffic-ipv6
+    domain: network
+    severity: critical
+    display_title: Security group allows all traffic from the internet (IPv6)
+    title: Security groups must not allow all protocols from ::/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_all_traffic_from_internet_ipv6
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_all_traffic_from_internet_ipv6]
+
+  - policy_id: AWS_EC2_013
+    control_ref: sg-postgres-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes PostgreSQL to the internet
+    title: Security groups must not allow PostgreSQL (5432) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_postgres_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_postgres_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_014
+    control_ref: sg-mysql-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes MySQL to the internet
+    title: Security groups must not allow MySQL (3306) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_mysql_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_mysql_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_015
+    control_ref: sg-redis-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes Redis to the internet
+    title: Security groups must not allow Redis (6379) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_redis_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_redis_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_016
+    control_ref: sg-mongodb-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes MongoDB to the internet
+    title: Security groups must not allow MongoDB (27017) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_mongodb_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_mongodb_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_017
+    control_ref: sg-elasticsearch-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes Elasticsearch to the internet
+    title: Security groups must not allow Elasticsearch (9200) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_elasticsearch_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_elasticsearch_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_018
+    control_ref: sg-ftp-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes FTP to the internet
+    title: Security groups must not allow FTP (21) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_ftp_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_ftp_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_019
+    control_ref: sg-telnet-internet
+    domain: network
+    severity: high
+    display_title: Security group exposes Telnet to the internet
+    title: Security groups must not allow Telnet (23) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_telnet_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.group_id, properties.allows_telnet_from_internet_ipv4]
+
+  - policy_id: AWS_EC2_020
+    control_ref: ec2-imds-endpoint-disabled
+    domain: compute
+    severity: medium
+    display_title: EC2 IMDS endpoint disabled on running instance
+    title: Running EC2 instances should not disable the instance metadata endpoint
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    nist_mappings: [CM-2, SI-4]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: and
+        conditions:
+          - type: field_check
+            path: properties.state
+            operator: eq
+            expected: running
+          - type: field_check
+            path: properties.http_endpoint
+            operator: eq
+            expected: disabled
+    evidence_fields: [properties.instance_id, properties.http_endpoint]

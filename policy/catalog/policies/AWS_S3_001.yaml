@@ -22,7 +22,6 @@ logic:
 evidence_fields:
 - properties.name
 - properties.denies_insecure_transport
-cis_control_id: 3.1.1
 remediation:
   headline: S3 bucket allows insecure HTTP access
   risk_summary: Data in transit to this bucket may be intercepted over unencrypted
@@ -33,3 +32,6 @@ remediation:
   framework_mappings:
   - CIS 3.1.1
   - SOC2 CC6.1
+  - SOC2 CC6.6
+display_title: S3 bucket allows insecure HTTP
+pack_id: pack_aws_storage

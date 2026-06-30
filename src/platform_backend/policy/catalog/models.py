@@ -16,6 +16,10 @@ class PolicyRemediation:
     terraform: str | None = None
     cloudformation: str | None = None
 
+    def customer_framework_mappings(self) -> tuple[str, ...]:
+        """Mappings safe for customer API (excludes licensed framework labels)."""
+        return tuple(m for m in self.framework_mappings if not m.strip().upper().startswith("CIS "))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "headline": self.headline,
@@ -43,6 +47,15 @@ class PolicyDefinition:
     evidence_fields: list[str]
     remediation: PolicyRemediation | None = None
     cis_control_id: str | None = None
+    display_title: str | None = None
+    pack_id: str | None = None
+
+    def customer_display_title(self) -> str:
+        if self.display_title:
+            return self.display_title
+        if self.remediation and self.remediation.headline:
+            return self.remediation.headline
+        return self.title
 
     def matches_asset(self, asset: dict[str, Any]) -> bool:
         if asset.get("resource_type") != self.resource_type:
@@ -54,14 +67,14 @@ class PolicyDefinition:
     def effective_remediation(self) -> PolicyRemediation:
         if self.remediation:
             return self.remediation
-        cis_tag = f"CIS {self.cis_control_id}" if self.cis_control_id else None
-        mappings = (cis_tag,) if cis_tag else ()
+        cis_tag = None
+        mappings = ()
         minutes = {"critical": 5, "high": 5, "medium": 3, "low": 2}.get(self.severity, 3)
         return PolicyRemediation(
-            headline=self.title,
+            headline=self.customer_display_title(),
             risk_summary=self.description,
-            business_impact="This misconfiguration may lead to unauthorized access or compliance failure.",
-            fix_summary=f"Review the affected resource and remediate: {self.title}",
+            business_impact="This misconfiguration may lead to unauthorized access or increased security risk.",
+            fix_summary=f"Review the affected resource and remediate: {self.customer_display_title()}",
             estimated_fix_minutes=minutes,
             framework_mappings=mappings,
         )

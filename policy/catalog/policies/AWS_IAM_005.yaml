@@ -29,9 +29,8 @@ evidence_fields:
 - properties.user_name
 - properties.password_last_used
 - properties.mfa_enabled
-cis_control_id: '2.9'
 remediation:
-  headline: IAM user must have MFA enabled
+  headline: IAM user without MFA
   risk_summary: Ensure multi-factor authentication (MFA) is enabled for IAM users
     with console access (CIS 2.9).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -40,3 +39,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 2.9
+  - SOC2 CC6.3
+display_title: IAM user without MFA
+pack_id: pack_aws_identity

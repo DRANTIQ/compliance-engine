@@ -5,6 +5,10 @@ from typing import Any
 from uuid import UUID
 
 from platform_backend.compliance.repository import ComplianceRepository, ControlAggregate
+from platform_backend.compliance.frameworks import (
+    CUSTOMER_PRIMARY_FRAMEWORK,
+    SCAN_FRAMEWORK_IDS,
+)
 from platform_backend.db.pool import DatabasePool
 
 
@@ -14,28 +18,29 @@ def _aggregate_control(
 ) -> ControlAggregate:
     mapped_policy_ids = list(control.get("mapped_policy_ids") or [])
     assessment_type = control["assessment_type"]
+    customer_title = control.get("display_title") or control["title"]
 
-    if assessment_type == "manual" and not mapped_policy_ids:
+    if assessment_type == "manual":
         return ControlAggregate(
             framework_id=control["framework_id"],
             control_id=control["control_id"],
-            title=control["title"],
+            title=customer_title,
             domain=control.get("domain"),
             severity=control["severity"],
             assessment_type=assessment_type,
-            mapped_policy_ids=[],
+            mapped_policy_ids=mapped_policy_ids,
             status="manual",
             fail_count=0,
             pass_count=0,
             finding_ids=[],
-            evidence={},
+            evidence={"assessment": "manual"},
         )
 
     if not mapped_policy_ids:
         return ControlAggregate(
             framework_id=control["framework_id"],
             control_id=control["control_id"],
-            title=control["title"],
+            title=customer_title,
             domain=control.get("domain"),
             severity=control["severity"],
             assessment_type=assessment_type,
@@ -81,7 +86,7 @@ def _aggregate_control(
     return ControlAggregate(
         framework_id=control["framework_id"],
         control_id=control["control_id"],
-        title=control["title"],
+        title=customer_title,
         domain=control.get("domain"),
         severity=control["severity"],
         assessment_type=assessment_type,
@@ -128,9 +133,31 @@ class ComplianceMapper:
         self,
         tenant_id: UUID,
         scan_id: UUID,
-        framework_id: str = "cis_aws_v6",
+        framework_id: str | None = None,
     ) -> dict[str, Any]:
-        framework = await self._repo.get_framework(framework_id)
+        """Map findings to compliance frameworks. Returns primary customer framework summary."""
+        if framework_id:
+            return await self._map_single_framework(tenant_id, scan_id, framework_id)
+
+        primary: dict[str, Any] | None = None
+        for fid in SCAN_FRAMEWORK_IDS:
+            framework = await self._repo.get_framework(fid, customer_visible_only=False)
+            if not framework:
+                continue
+            summary = await self._map_single_framework(tenant_id, scan_id, fid)
+            if fid == CUSTOMER_PRIMARY_FRAMEWORK:
+                primary = summary
+        if not primary:
+            raise LookupError(f"framework not found: {CUSTOMER_PRIMARY_FRAMEWORK}")
+        return primary
+
+    async def _map_single_framework(
+        self,
+        tenant_id: UUID,
+        scan_id: UUID,
+        framework_id: str,
+    ) -> dict[str, Any]:
+        framework = await self._repo.get_framework(framework_id, customer_visible_only=False)
         if not framework:
             raise LookupError(f"framework not found: {framework_id}")
 

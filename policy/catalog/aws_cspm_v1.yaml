@@ -1,14 +1,16 @@
 # Unified AWS CSPM policy catalog — CIS AWS v6 automated subset (35 policies)
 # Source: infra-state-docs/new arch/tests/fixtures/cis_aws_v6_controls.json
 version: '1.0.0'
-pack_id: pack_aws_cis_v6
+pack_id: pack_aws_core
 framework_id: cis_aws_v6
 policies:
   - policy_id: AWS_IAM_001
     control_ref: iam-root-access-keys
     cis_control_id: '2.3'
     domain: iam
+    display_title: Root account has active access keys
     title: Root user must not have access keys
+    pack_id: pack_aws_identity
     severity: critical
     resource_type: identity.account
     provider_type: aws_iam_account
@@ -18,7 +20,9 @@ policies:
     control_ref: iam-root-mfa
     cis_control_id: '2.4'
     domain: iam
+    display_title: Root account missing MFA
     title: Root user must have MFA enabled
+    pack_id: pack_aws_identity
     severity: critical
     resource_type: identity.account
     provider_type: aws_iam_account
@@ -28,7 +32,9 @@ policies:
     control_ref: iam-password-min-length
     cis_control_id: '2.7'
     domain: iam
+    display_title: Weak IAM password length policy
     title: IAM password policy minimum length
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.account
     provider_type: aws_iam_account_password_policy
@@ -38,7 +44,9 @@ policies:
     control_ref: iam-password-reuse
     cis_control_id: '2.8'
     domain: iam
+    display_title: IAM password reuse not restricted
     title: IAM password policy prevents reuse
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.account
     provider_type: aws_iam_account_password_policy
@@ -48,7 +56,9 @@ policies:
     control_ref: iam-user-mfa
     cis_control_id: '2.9'
     domain: iam
+    display_title: IAM user without MFA
     title: IAM user must have MFA enabled
+    pack_id: pack_aws_identity
     severity: high
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -58,7 +68,9 @@ policies:
     control_ref: iam-credentials-unused
     cis_control_id: '2.11'
     domain: iam
+    display_title: Unused IAM credentials still active
     title: Unused IAM credentials must be disabled
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -68,7 +80,9 @@ policies:
     control_ref: iam-single-access-key
     cis_control_id: '2.12'
     domain: iam
+    display_title: IAM user has multiple active access keys
     title: IAM user must have at most one active access key
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -78,7 +92,9 @@ policies:
     control_ref: iam-access-key-rotation
     cis_control_id: '2.13'
     domain: iam
+    display_title: Stale IAM access key detected
     title: IAM access keys must be rotated within 90 days
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -88,7 +104,9 @@ policies:
     control_ref: iam-permissions-via-groups
     cis_control_id: '2.14'
     domain: iam
+    display_title: IAM user has direct policy attachments
     title: IAM users must receive permissions via groups
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -98,7 +116,9 @@ policies:
     control_ref: iam-admin-policies
     cis_control_id: '2.15'
     domain: iam
+    display_title: IAM user has administrator access
     title: IAM users must not have full admin policies attached
+    pack_id: pack_aws_identity
     severity: high
     resource_type: identity.user
     provider_type: aws_iam_user
@@ -108,7 +128,9 @@ policies:
     control_ref: iam-support-role
     cis_control_id: '2.16'
     domain: iam
+    display_title: AWS Support access role missing
     title: AWS Support role must exist
+    pack_id: pack_aws_identity
     severity: low
     resource_type: identity.account
     provider_type: aws_iam_account
@@ -118,7 +140,9 @@ policies:
     control_ref: iam-instance-roles
     cis_control_id: '2.17'
     domain: iam
+    display_title: EC2 instance missing IAM role
     title: EC2 instances must use IAM instance roles
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: compute.instance
     provider_type: aws_ec2_instance
@@ -128,7 +152,9 @@ policies:
     control_ref: iam-expired-certificates
     cis_control_id: '2.18'
     domain: iam
+    display_title: Expired IAM server certificate
     title: Expired IAM SSL/TLS certificates must be removed
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.certificate
     provider_type: aws_iam_server_certificate
@@ -138,7 +164,9 @@ policies:
     control_ref: iam-access-analyzer
     cis_control_id: '2.19'
     domain: iam
+    display_title: IAM Access Analyzer disabled
     title: IAM Access Analyzer must be enabled
+    pack_id: pack_aws_identity
     severity: medium
     resource_type: identity.account
     provider_type: aws_iam_access_analyzer
@@ -148,7 +176,9 @@ policies:
     control_ref: s3-deny-http
     cis_control_id: '3.1.1'
     domain: s3
+    display_title: S3 bucket allows insecure HTTP
     title: S3 bucket policy must deny HTTP requests
+    pack_id: pack_aws_storage
     severity: high
     resource_type: storage.bucket
     provider_type: aws_s3_bucket
@@ -158,7 +188,9 @@ policies:
     control_ref: s3-public-access
     cis_control_id: '3.1.4'
     domain: s3
+    display_title: Public S3 bucket detected
     title: S3 bucket must block public access
+    pack_id: pack_aws_storage
     severity: critical
     resource_type: storage.bucket
     provider_type: aws_s3_bucket
@@ -168,7 +200,9 @@ policies:
     control_ref: rds-encryption
     cis_control_id: '3.2.1'
     domain: rds
+    display_title: RDS storage encryption disabled
     title: RDS instance encryption at rest must be enabled
+    pack_id: pack_aws_data
     severity: high
     resource_type: database.instance
     provider_type: aws_rds_instance
@@ -178,7 +212,9 @@ policies:
     control_ref: rds-auto-upgrade
     cis_control_id: '3.2.2'
     domain: rds
+    display_title: RDS auto minor version upgrade disabled
     title: RDS auto minor version upgrade must be enabled
+    pack_id: pack_aws_data
     severity: medium
     resource_type: database.instance
     provider_type: aws_rds_instance
@@ -188,7 +224,9 @@ policies:
     control_ref: rds-public
     cis_control_id: '3.2.3'
     domain: rds
+    display_title: RDS instance publicly accessible
     title: RDS instances must not be publicly accessible
+    pack_id: pack_aws_data
     severity: critical
     resource_type: database.instance
     provider_type: aws_rds_instance
@@ -198,7 +236,9 @@ policies:
     control_ref: efs-encryption
     cis_control_id: '3.3.1'
     domain: efs
+    display_title: EFS encryption disabled
     title: EFS file systems must be encrypted
+    pack_id: pack_aws_storage
     severity: high
     resource_type: storage.filesystem
     provider_type: aws_efs_file_system
@@ -208,7 +248,9 @@ policies:
     control_ref: cloudtrail-validation
     cis_control_id: '4.2'
     domain: logging
+    display_title: CloudTrail log validation disabled
     title: CloudTrail log file validation must be enabled
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: governance.trail
     provider_type: aws_cloudtrail_trail
@@ -218,7 +260,9 @@ policies:
     control_ref: config-enabled
     cis_control_id: '4.3'
     domain: logging
+    display_title: AWS Config not enabled
     title: AWS Config must be enabled
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: governance.config
     provider_type: aws_config_configuration_recorder
@@ -228,7 +272,9 @@ policies:
     control_ref: cloudtrail-kms
     cis_control_id: '4.5'
     domain: logging
+    display_title: CloudTrail logs not KMS encrypted
     title: CloudTrail logs must use KMS encryption
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: governance.trail
     provider_type: aws_cloudtrail_trail
@@ -238,7 +284,9 @@ policies:
     control_ref: kms-rotation
     cis_control_id: '4.6'
     domain: logging
+    display_title: KMS key rotation disabled
     title: KMS key rotation must be enabled
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: security.key
     provider_type: aws_kms_key
@@ -248,7 +296,9 @@ policies:
     control_ref: vpc-flow-logs
     cis_control_id: '4.7'
     domain: logging
+    display_title: VPC flow logs disabled
     title: VPC flow logging must be enabled
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: network.vpc
     provider_type: aws_ec2_vpc
@@ -258,7 +308,9 @@ policies:
     control_ref: s3-write-logging
     cis_control_id: '4.8'
     domain: s3
+    display_title: S3 write activity not logged
     title: S3 bucket write events must be logged
+    pack_id: pack_aws_storage
     severity: medium
     resource_type: storage.bucket
     provider_type: aws_s3_bucket
@@ -268,7 +320,9 @@ policies:
     control_ref: s3-read-logging
     cis_control_id: '4.9'
     domain: s3
+    display_title: S3 read activity not logged
     title: S3 bucket read events must be logged
+    pack_id: pack_aws_storage
     severity: medium
     resource_type: storage.bucket
     provider_type: aws_s3_bucket
@@ -278,7 +332,9 @@ policies:
     control_ref: security-hub-enabled
     cis_control_id: '5.16'
     domain: logging
+    display_title: Security Hub not enabled
     title: AWS Security Hub must be enabled
+    pack_id: pack_aws_logging
     severity: medium
     resource_type: governance.hub
     provider_type: aws_securityhub_hub
@@ -288,7 +344,9 @@ policies:
     control_ref: ebs-encryption-default
     cis_control_id: '6.1.1'
     domain: network
+    display_title: Default EBS encryption disabled
     title: EBS default encryption must be enabled
+    pack_id: pack_aws_network
     severity: high
     resource_type: identity.account
     provider_type: aws_account_ebs_encryption
@@ -298,7 +356,9 @@ policies:
     control_ref: cifs-restricted
     cis_control_id: '6.1.2'
     domain: network
+    display_title: Unrestricted CIFS in security group
     title: CIFS access must be restricted
+    pack_id: pack_aws_network
     severity: medium
     resource_type: network.security_group
     provider_type: aws_ec2_security_group
@@ -308,7 +368,9 @@ policies:
     control_ref: nacl-admin-ports
     cis_control_id: '6.2'
     domain: network
+    display_title: NACL allows unrestricted admin ports
     title: NACLs must not allow unrestricted admin ports
+    pack_id: pack_aws_network
     severity: high
     resource_type: network.nacl
     provider_type: aws_ec2_network_acl
@@ -318,7 +380,9 @@ policies:
     control_ref: sg-admin-ports-ipv4
     cis_control_id: '6.3'
     domain: network
+    display_title: Security group allows admin ports (IPv4)
     title: Security groups must not allow unrestricted admin ports (IPv4)
+    pack_id: pack_aws_network
     severity: high
     resource_type: network.security_group
     provider_type: aws_ec2_security_group
@@ -328,7 +392,9 @@ policies:
     control_ref: sg-admin-ports-ipv6
     cis_control_id: '6.4'
     domain: network
+    display_title: Security group allows admin ports (IPv6)
     title: Security groups must not allow unrestricted admin ports (IPv6)
+    pack_id: pack_aws_network
     severity: high
     resource_type: network.security_group
     provider_type: aws_ec2_security_group
@@ -338,7 +404,9 @@ policies:
     control_ref: default-sg-restricts-traffic
     cis_control_id: '6.5'
     domain: network
+    display_title: Default security group not restrictive
     title: Default security group must restrict all traffic
+    pack_id: pack_aws_network
     severity: medium
     resource_type: network.security_group
     provider_type: aws_ec2_security_group
@@ -348,9 +416,561 @@ policies:
     control_ref: ec2-imdsv2
     cis_control_id: '6.7'
     domain: network
+    display_title: EC2 instance not requiring IMDSv2
     title: EC2 instances must require IMDSv2
+    pack_id: pack_aws_network
     severity: high
     resource_type: compute.instance
     provider_type: aws_ec2_instance
     collector: network
+    status: implemented
+  - policy_id: AWS_CMP_001
+    control_ref: lambda-public-invoke
+    domain: compute
+    display_title: Lambda function allows public invocation
+    title: Lambda function must not allow public invocation
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    status: implemented
+  - policy_id: AWS_CMP_002
+    control_ref: lambda-url-no-auth
+    domain: compute
+    display_title: Lambda function URL without authentication
+    title: Lambda function URL must not use unauthenticated access
+    pack_id: pack_aws_compute_security
+    severity: critical
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    status: implemented
+  - policy_id: AWS_CMP_003
+    control_ref: lambda-tracing-disabled
+    domain: compute
+    display_title: Lambda function tracing disabled
+    title: Lambda function must have active X-Ray tracing
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    status: implemented
+  - policy_id: AWS_CMP_004
+    control_ref: lambda-deprecated-runtime
+    domain: compute
+    display_title: Lambda function uses deprecated runtime
+    title: Lambda function must use a supported runtime
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    status: implemented
+  - policy_id: AWS_CMP_005
+    control_ref: lambda-no-dlq
+    domain: compute
+    display_title: Lambda function missing dead letter queue
+    title: Lambda function must configure a dead letter queue
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: compute.function
+    provider_type: aws_lambda_function
+    collector: lambda
+    status: implemented
+  - policy_id: AWS_CMP_006
+    control_ref: guardduty-disabled
+    domain: security
+    display_title: GuardDuty disabled in region
+    title: Amazon GuardDuty must be enabled
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    status: implemented
+  - policy_id: AWS_CMP_007
+    control_ref: guardduty-s3-protection
+    domain: security
+    display_title: GuardDuty S3 protection disabled
+    title: GuardDuty S3 data event protection must be enabled
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    status: implemented
+  - policy_id: AWS_CMP_008
+    control_ref: guardduty-lambda-protection
+    domain: security
+    display_title: GuardDuty Lambda protection disabled
+    title: GuardDuty Lambda network logs protection must be enabled
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    status: implemented
+  - policy_id: AWS_CMP_009
+    control_ref: guardduty-eks-audit
+    domain: security
+    display_title: GuardDuty EKS audit log monitoring disabled
+    title: GuardDuty EKS audit log monitoring must be enabled
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    status: implemented
+  - policy_id: AWS_CMP_010
+    control_ref: ec2-public-ip
+    domain: network
+    display_title: EC2 instance has a public IP address
+    title: EC2 instances should not have a public IP address
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_CMP_011
+    control_ref: ebs-unencrypted
+    domain: storage
+    display_title: Unencrypted EBS volume in use
+    title: In-use EBS volumes must be encrypted
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: storage.volume
+    provider_type: aws_ebs_volume
+    collector: ebs
+    status: implemented
+  - policy_id: AWS_CMP_012
+    control_ref: ec2-detailed-monitoring
+    domain: compute
+    display_title: EC2 detailed monitoring disabled
+    title: Running EC2 instances should have detailed monitoring enabled
+    pack_id: pack_aws_compute_security
+    severity: low
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_CMP_013
+    control_ref: sg-ssh-internet
+    domain: network
+    display_title: Security group allows SSH from the internet
+    title: Security groups must not allow SSH from 0.0.0.0/0
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_CMP_014
+    control_ref: sg-rdp-internet
+    domain: network
+    display_title: Security group allows RDP from the internet
+    title: Security groups must not allow RDP from 0.0.0.0/0
+    pack_id: pack_aws_compute_security
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_CMP_015
+    control_ref: guardduty-rds-protection
+    domain: security
+    display_title: GuardDuty RDS login monitoring disabled
+    title: GuardDuty RDS login event monitoring must be enabled
+    pack_id: pack_aws_compute_security
+    severity: medium
+    resource_type: security.detector
+    provider_type: aws_guardduty_detector
+    collector: guardduty
+    status: implemented
+  - policy_id: AWS_EC2_001
+    control_ref: ec2-termination-protection
+    domain: compute
+    display_title: EC2 instance without termination protection
+    title: Running EC2 instances must have termination protection enabled
+    pack_id: pack_aws_compute
+    severity: medium
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_EC2_002
+    control_ref: ec2-imds-hop-limit
+    domain: compute
+    display_title: EC2 IMDS hop limit allows container SSRF
+    title: EC2 IMDS hop limit must not exceed 1
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_EC2_003
+    control_ref: ec2-imds-optional-tokens
+    domain: compute
+    display_title: EC2 instance allows optional IMDSv2 tokens
+    title: EC2 instances must require IMDSv2 when metadata endpoint is enabled
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_EC2_004
+    control_ref: ec2-source-dest-check
+    domain: network
+    display_title: EC2 source/destination check disabled
+    title: EC2 instances must not disable source/destination checks
+    pack_id: pack_aws_compute
+    severity: medium
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_EC2_005
+    control_ref: ami-public
+    domain: compute
+    display_title: Public AMI owned by account
+    title: Account-owned AMIs must not be public
+    pack_id: pack_aws_compute
+    severity: critical
+    resource_type: compute.image
+    provider_type: aws_ec2_ami
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_006
+    control_ref: ami-unencrypted-root
+    domain: compute
+    display_title: AMI with unencrypted root volume
+    title: AMIs must use encrypted root EBS volumes
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: compute.image
+    provider_type: aws_ec2_ami
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_007
+    control_ref: ebs-snapshot-public
+    domain: storage
+    display_title: Public EBS snapshot detected
+    title: EBS snapshots must not be publicly shared
+    pack_id: pack_aws_compute
+    severity: critical
+    resource_type: storage.snapshot
+    provider_type: aws_ebs_snapshot
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_008
+    control_ref: ebs-snapshot-unencrypted
+    domain: storage
+    display_title: Unencrypted EBS snapshot
+    title: EBS snapshots must be encrypted
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: storage.snapshot
+    provider_type: aws_ebs_snapshot
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_009
+    control_ref: ec2-serial-console
+    domain: compute
+    display_title: EC2 serial console access enabled
+    title: EC2 serial console access must be disabled
+    pack_id: pack_aws_compute
+    severity: medium
+    resource_type: identity.account
+    provider_type: aws_ec2_account_setting
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_010
+    control_ref: default-vpc-in-use
+    domain: network
+    display_title: Default VPC present in region
+    title: AWS default VPC should not be used for production workloads
+    pack_id: pack_aws_compute
+    severity: low
+    resource_type: identity.account
+    provider_type: aws_ec2_account_setting
+    collector: compute
+    status: implemented
+  - policy_id: AWS_EC2_011
+    control_ref: sg-all-traffic-ipv4
+    domain: network
+    display_title: Security group allows all traffic from the internet (IPv4)
+    title: Security groups must not allow all protocols from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: critical
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_012
+    control_ref: sg-all-traffic-ipv6
+    domain: network
+    display_title: Security group allows all traffic from the internet (IPv6)
+    title: Security groups must not allow all protocols from ::/0
+    pack_id: pack_aws_compute
+    severity: critical
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_013
+    control_ref: sg-postgres-internet
+    domain: network
+    display_title: Security group exposes PostgreSQL to the internet
+    title: Security groups must not allow PostgreSQL (5432) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_014
+    control_ref: sg-mysql-internet
+    domain: network
+    display_title: Security group exposes MySQL to the internet
+    title: Security groups must not allow MySQL (3306) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_015
+    control_ref: sg-redis-internet
+    domain: network
+    display_title: Security group exposes Redis to the internet
+    title: Security groups must not allow Redis (6379) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_016
+    control_ref: sg-mongodb-internet
+    domain: network
+    display_title: Security group exposes MongoDB to the internet
+    title: Security groups must not allow MongoDB (27017) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_017
+    control_ref: sg-elasticsearch-internet
+    domain: network
+    display_title: Security group exposes Elasticsearch to the internet
+    title: Security groups must not allow Elasticsearch (9200) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_018
+    control_ref: sg-ftp-internet
+    domain: network
+    display_title: Security group exposes FTP to the internet
+    title: Security groups must not allow FTP (21) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_019
+    control_ref: sg-telnet-internet
+    domain: network
+    display_title: Security group exposes Telnet to the internet
+    title: Security groups must not allow Telnet (23) from 0.0.0.0/0
+    pack_id: pack_aws_compute
+    severity: high
+    resource_type: network.security_group
+    provider_type: aws_ec2_security_group
+    collector: network
+    status: implemented
+  - policy_id: AWS_EC2_020
+    control_ref: ec2-imds-endpoint-disabled
+    domain: compute
+    display_title: EC2 IMDS endpoint disabled on running instance
+    title: Running EC2 instances should not disable the instance metadata endpoint
+    pack_id: pack_aws_compute
+    severity: medium
+    resource_type: compute.instance
+    provider_type: aws_ec2_instance
+    collector: ec2
+    status: implemented
+  - policy_id: AWS_RDS_004
+    control_ref: rds-backup-retention
+    domain: data
+    display_title: RDS backup retention below 7 days
+    title: RDS instances must retain automated backups for at least 7 days
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_005
+    control_ref: rds-single-az
+    domain: data
+    display_title: RDS instance not configured for Multi-AZ
+    title: RDS instances should use Multi-AZ for high availability
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_006
+    control_ref: rds-deletion-protection
+    domain: data
+    display_title: RDS instance deletion protection disabled
+    title: RDS instances must have deletion protection enabled
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_007
+    control_ref: rds-iam-auth
+    domain: data
+    display_title: RDS IAM database authentication disabled
+    title: RDS instances should enable IAM database authentication
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_008
+    control_ref: rds-cloudwatch-logs
+    domain: data
+    display_title: RDS CloudWatch log exports disabled
+    title: RDS instances must export database logs to CloudWatch
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_009
+    control_ref: rds-enhanced-monitoring
+    domain: data
+    display_title: RDS enhanced monitoring disabled
+    title: RDS instances should enable enhanced monitoring
+    pack_id: pack_aws_data
+    severity: low
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_010
+    control_ref: rds-performance-insights
+    domain: data
+    display_title: RDS Performance Insights disabled
+    title: RDS instances should enable Performance Insights
+    pack_id: pack_aws_data
+    severity: low
+    resource_type: database.instance
+    provider_type: aws_rds_instance
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_011
+    control_ref: rds-snapshot-public
+    domain: data
+    display_title: Public RDS snapshot detected
+    title: RDS snapshots must not be publicly shared
+    pack_id: pack_aws_data
+    severity: critical
+    resource_type: database.snapshot
+    provider_type: aws_rds_snapshot
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_012
+    control_ref: rds-snapshot-unencrypted
+    domain: data
+    display_title: Unencrypted RDS snapshot
+    title: RDS snapshots must be encrypted
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.snapshot
+    provider_type: aws_rds_snapshot
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_013
+    control_ref: rds-cluster-deletion-protection
+    domain: data
+    display_title: RDS cluster deletion protection disabled
+    title: RDS clusters must have deletion protection enabled
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.cluster
+    provider_type: aws_rds_cluster
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_014
+    control_ref: rds-cluster-encryption
+    domain: data
+    display_title: RDS cluster storage encryption disabled
+    title: RDS clusters must have storage encryption enabled
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.cluster
+    provider_type: aws_rds_cluster
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_015
+    control_ref: dynamodb-encryption
+    domain: data
+    display_title: DynamoDB table encryption disabled
+    title: DynamoDB tables must have server-side encryption enabled
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_016
+    control_ref: dynamodb-pitr
+    domain: data
+    display_title: DynamoDB point-in-time recovery disabled
+    title: DynamoDB tables must enable point-in-time recovery
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_017
+    control_ref: dynamodb-deletion-protection
+    domain: data
+    display_title: DynamoDB deletion protection disabled
+    title: DynamoDB tables must have deletion protection enabled
+    pack_id: pack_aws_data
+    severity: medium
+    resource_type: database.table
+    provider_type: aws_dynamodb_table
+    collector: database
+    status: implemented
+  - policy_id: AWS_RDS_018
+    control_ref: elasticache-encryption-at-rest
+    domain: data
+    display_title: ElastiCache encryption at rest disabled
+    title: ElastiCache replication groups must encrypt data at rest
+    pack_id: pack_aws_data
+    severity: high
+    resource_type: database.cache
+    provider_type: aws_elasticache_replication_group
+    collector: database
     status: implemented

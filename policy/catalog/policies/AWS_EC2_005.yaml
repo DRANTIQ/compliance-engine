@@ -1,0 +1,30 @@
+policy_id: AWS_EC2_005
+title: Account-owned AMIs must not be public
+provider: aws
+resource_type: compute.image
+provider_type: aws_ec2_ami
+severity: critical
+description: Account-owned AMIs must not be public
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.public
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.image_id
+- properties.public
+remediation:
+  headline: Public AMI owned by account
+  risk_summary: Account-owned AMIs must not be public
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Account-owned AMIs must not be public'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-3
+  - NIST SC-7
+  - SOC2 CC7.3
+display_title: Public AMI owned by account
+pack_id: pack_aws_compute

@@ -1,0 +1,32 @@
+policy_id: AWS_EC2_012
+title: Security groups must not allow all protocols from ::/0
+provider: aws
+resource_type: network.security_group
+provider_type: aws_ec2_security_group
+severity: critical
+description: Security groups must not allow all protocols from ::/0
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_all_traffic_from_internet_ipv6
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.group_id
+- properties.allows_all_traffic_from_internet_ipv6
+remediation:
+  headline: Security group allows all traffic from the internet (IPv6)
+  risk_summary: Security groups must not allow all protocols from ::/0
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Security groups must not allow all protocols from
+    ::/0'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+  - SOC2 CC7.3
+display_title: Security group allows all traffic from the internet (IPv6)
+pack_id: pack_aws_compute

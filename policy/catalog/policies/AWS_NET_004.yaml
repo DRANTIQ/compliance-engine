@@ -17,9 +17,8 @@ evidence_fields:
 - properties.group_id
 - properties.group_name
 - properties.allows_unrestricted_admin_ports_ipv4
-cis_control_id: '6.3'
 remediation:
-  headline: Security groups must not allow unrestricted admin ports (IPv4)
+  headline: Security group allows admin ports (IPv4)
   risk_summary: Security groups must not allow unrestricted SSH/RDP from 0.0.0.0/0
     (CIS 6.3).
   business_impact: This misconfiguration may lead to unauthorized access or compliance
@@ -29,3 +28,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 6.3
+  - SOC2 CC6.4
+display_title: Security group allows admin ports (IPv4)
+pack_id: pack_aws_network

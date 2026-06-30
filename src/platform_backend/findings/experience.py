@@ -57,14 +57,22 @@ def affected_resource_name(finding: dict[str, Any]) -> str:
     return tail if tail else finding.get("resource_id", "unknown")
 
 
-def parse_framework_mappings(mappings: list[str]) -> list[dict[str, str]]:
+def parse_framework_mappings(
+    mappings: list[str],
+    *,
+    customer_visible: bool = True,
+) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for raw in mappings:
         text = raw.strip()
+        if customer_visible and text.upper().startswith("CIS "):
+            continue
         if text.startswith("CIS "):
             out.append({"framework": "CIS AWS v6", "control": text.removeprefix("CIS ").strip()})
         elif text.startswith("SOC2 "):
             out.append({"framework": "SOC 2", "control": text.removeprefix("SOC2 ").strip()})
+        elif text.startswith("NIST "):
+            out.append({"framework": "NIST 800-53", "control": text.removeprefix("NIST ").strip()})
         else:
             parts = text.split(" ", 1)
             if len(parts) == 2:
@@ -105,6 +113,8 @@ def fix_priority_sort_key(finding: dict[str, Any], remediation: dict[str, Any]) 
 
 
 def customer_remediation(remediation: dict[str, Any]) -> dict[str, Any]:
+    raw_mappings = remediation.get("framework_mappings") or []
+    customer_mappings = [m for m in raw_mappings if not str(m).strip().upper().startswith("CIS ")]
     return {
         "summary": remediation.get("fix_summary"),
         "headline": remediation.get("headline"),
@@ -116,15 +126,21 @@ def customer_remediation(remediation: dict[str, Any]) -> dict[str, Any]:
         "aws_cli": remediation.get("aws_cli"),
         "terraform": remediation.get("terraform"),
         "cloudformation": remediation.get("cloudformation"),
-        "framework_mappings": remediation.get("framework_mappings") or [],
+        "framework_mappings": customer_mappings,
     }
 
 
 def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool = False) -> dict[str, Any]:
     base = enrich_finding(finding)
     rem = base["remediation"]
-    display = rem.get("headline") or finding.get("title") or finding.get("policy_id") or "Security finding"
+    policy = get_policy_definition(finding.get("policy_id", ""))
+    display = (
+        policy.customer_display_title()
+        if policy
+        else rem.get("headline") or finding.get("title") or finding.get("policy_id") or "Security finding"
+    )
     technical = finding.get("title") or finding.get("policy_id") or "Finding"
+    customer_mappings = [m for m in (rem.get("framework_mappings") or []) if not str(m).strip().upper().startswith("CIS ")]
     out: dict[str, Any] = {
         **base,
         "display_title": display,
@@ -134,7 +150,7 @@ def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool =
         "resource_type_label": resource_type_label(finding.get("resource_type", "")),
         "risk": rem.get("risk_summary") or finding.get("description"),
         "business_impact": rem.get("business_impact"),
-        "frameworks": parse_framework_mappings(rem.get("framework_mappings") or []),
+        "frameworks": parse_framework_mappings(customer_mappings, customer_visible=True),
         "remediation": customer_remediation(rem),
     }
     if include_priority:
@@ -279,8 +295,7 @@ def build_affected_resources(findings: list[dict[str, Any]], policy_id: str) -> 
     return {
         "policy_id": policy_id,
         "policy_title": policy.title if policy else policy_id,
-        "display_title": (policy.remediation.headline if policy and policy.remediation else None)
-        or (policy.title if policy else policy_id),
+        "display_title": policy.customer_display_title() if policy else policy_id,
         "affected_count": len(resources),
         "resources": resources,
     }

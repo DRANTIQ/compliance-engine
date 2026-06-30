@@ -11,9 +11,15 @@ from platform_backend.api.schemas.customer_experience import (
     FindingDetailResponse,
 )
 from platform_backend.db.pool import DatabasePool
-from platform_backend.findings.experience import build_affected_resources, enrich_customer_finding
+from platform_backend.findings.experience import (
+    build_affected_resources,
+    enrich_customer_finding,
+    parse_framework_mappings,
+)
 from platform_backend.findings.presentation import enrich_finding
 from platform_backend.findings.repository import FindingsRepository
+from platform_backend.identity.deps import get_principal
+from platform_backend.identity.models import PlatformPrincipal
 
 router = APIRouter(prefix="/v1/findings", tags=["findings"])
 
@@ -24,7 +30,7 @@ class RemediationResponse(BaseModel):
     business_impact: str | None = None
     fix_summary: str | None = None
     estimated_fix_minutes: int | None = None
-    framework_mappings: list[str] = Field(default_factory=list, description="CIS / SOC2 control refs")
+    framework_mappings: list[str] = Field(default_factory=list, description="SOC2 / NIST control refs")
     aws_cli: str | None = Field(default=None, description="Suggested AWS CLI remediation")
     terraform: str | None = None
     cloudformation: str | None = None
@@ -32,7 +38,7 @@ class RemediationResponse(BaseModel):
 
 class FindingResponse(BaseModel):
     id: str
-    policy_id: str = Field(description="Unified policy ID e.g. AWS_S3_001")
+    policy_id: str | None = Field(default=None, description="Internal check ID e.g. AWS_S3_001")
     resource_id: str
     resource_type: str
     result: str = Field(description="pass | fail | error")
@@ -81,7 +87,7 @@ async def list_findings(
         limit=limit,
         offset=offset,
     )
-    return [FindingResponse(**enrich_finding(r)) for r in rows]
+    return [FindingResponse(**enrich_finding(r, customer_visible=True)) for r in rows]
 
 
 @router.get(
@@ -121,9 +127,24 @@ async def get_finding(
     finding_id: UUID,
     scan_id: UUID = Query(..., description="Scan UUID"),
     tenant_id: UUID = Depends(get_tenant_id),
+    principal: PlatformPrincipal = Depends(get_principal),
     repo: FindingsRepository = Depends(get_findings_repo),
+    expand: str | None = Query(
+        default=None,
+        description="super_admin only: expand=framework_mappings for full internal mappings",
+    ),
 ) -> FindingDetailResponse:
     row = await repo.get_finding(tenant_id, scan_id, finding_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="finding not found")
-    return FindingDetailResponse(**enrich_customer_finding(row))
+    item = enrich_customer_finding(row)
+    if expand == "framework_mappings" and principal.role == "super_admin":
+        internal = enrich_finding(row, customer_visible=False)
+        rem = item.get("remediation") or {}
+        rem["framework_mappings"] = internal["remediation"].get("framework_mappings") or []
+        item["remediation"] = rem
+        item["frameworks"] = parse_framework_mappings(
+            rem["framework_mappings"],
+            customer_visible=False,
+        )
+    return FindingDetailResponse(**item)

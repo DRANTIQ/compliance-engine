@@ -21,6 +21,7 @@ from platform_backend.api.routes import (
     invitations,
     me,
     policies,
+    policy_packs,
     scans,
     workspaces,
 )
@@ -125,6 +126,7 @@ def create_app() -> FastAPI:
     app.include_router(assets.router)
     app.include_router(findings.router)
     app.include_router(policies.router)
+    app.include_router(policy_packs.router)
     app.include_router(compliance.router)
     app.include_router(admin.router)
     return app

@@ -1,0 +1,37 @@
+policy_id: AWS_CMP_015
+title: GuardDuty RDS login event monitoring must be enabled
+provider: aws
+resource_type: security.detector
+provider_type: aws_guardduty_detector
+severity: medium
+description: GuardDuty RDS login event monitoring must be enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.enabled
+      operator: eq
+      expected: true
+    - type: field_check
+      path: properties.rds_login_events_enabled
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.region
+- properties.rds_login_events_enabled
+remediation:
+  headline: GuardDuty RDS login monitoring disabled
+  risk_summary: GuardDuty RDS login event monitoring must be enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: GuardDuty RDS login event monitoring must be enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST SI-4
+  - NIST AU-2
+  - SOC2 CC6.4
+display_title: GuardDuty RDS login monitoring disabled
+pack_id: pack_aws_compute_security

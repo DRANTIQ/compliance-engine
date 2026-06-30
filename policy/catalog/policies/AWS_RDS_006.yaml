@@ -1,0 +1,30 @@
+policy_id: AWS_RDS_006
+title: RDS instances must have deletion protection enabled
+provider: aws
+resource_type: database.instance
+provider_type: aws_rds_instance
+severity: high
+description: RDS instances must have deletion protection enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.deletion_protection
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.db_instance_identifier
+- properties.deletion_protection
+remediation:
+  headline: RDS instance deletion protection disabled
+  risk_summary: RDS instances must have deletion protection enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: RDS instances must have deletion protection enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST CP-2
+  - NIST CM-2
+  - SOC2 CC8.1
+display_title: RDS instance deletion protection disabled
+pack_id: pack_aws_data

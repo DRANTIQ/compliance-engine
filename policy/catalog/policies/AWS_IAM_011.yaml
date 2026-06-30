@@ -21,7 +21,6 @@ logic:
 evidence_fields:
 - properties.account_id
 - properties.support_role_exists
-cis_control_id: '2.16'
 remediation:
   headline: AWS Support role missing
   risk_summary: AWS Support case management role is not configured.
@@ -30,3 +29,6 @@ remediation:
   estimated_fix_minutes: 5
   framework_mappings:
   - CIS 2.16
+  - SOC2 CC6.1
+display_title: AWS Support access role missing
+pack_id: pack_aws_identity

@@ -1,0 +1,38 @@
+policy_id: AWS_EC2_001
+title: Running EC2 instances must have termination protection enabled
+provider: aws
+resource_type: compute.instance
+provider_type: aws_ec2_instance
+severity: medium
+description: Running EC2 instances must have termination protection enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: and
+    conditions:
+    - type: field_check
+      path: properties.state
+      operator: eq
+      expected: running
+    - type: field_check
+      path: properties.termination_protected
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.instance_id
+- properties.termination_protected
+remediation:
+  headline: EC2 instance without termination protection
+  risk_summary: Running EC2 instances must have termination protection enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Running EC2 instances must have termination protection
+    enabled'
+  estimated_fix_minutes: 3
+  framework_mappings:
+  - NIST CM-2
+  - NIST CP-2
+  - SOC2 CC6.8
+display_title: EC2 instance without termination protection
+pack_id: pack_aws_compute

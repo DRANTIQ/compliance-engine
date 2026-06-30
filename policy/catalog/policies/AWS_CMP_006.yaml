@@ -1,0 +1,30 @@
+policy_id: AWS_CMP_006
+title: Amazon GuardDuty must be enabled
+provider: aws
+resource_type: security.detector
+provider_type: aws_guardduty_detector
+severity: high
+description: Amazon GuardDuty must be enabled
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.enabled
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.region
+- properties.enabled
+remediation:
+  headline: GuardDuty disabled in region
+  risk_summary: Amazon GuardDuty must be enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Amazon GuardDuty must be enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SI-4
+  - NIST RA-5
+  - SOC2 CC7.1
+display_title: GuardDuty disabled in region
+pack_id: pack_aws_compute_security

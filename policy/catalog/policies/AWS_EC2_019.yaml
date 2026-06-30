@@ -1,0 +1,31 @@
+policy_id: AWS_EC2_019
+title: Security groups must not allow Telnet (23) from 0.0.0.0/0
+provider: aws
+resource_type: network.security_group
+provider_type: aws_ec2_security_group
+severity: high
+description: Security groups must not allow Telnet (23) from 0.0.0.0/0
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_telnet_from_internet_ipv4
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.group_id
+- properties.allows_telnet_from_internet_ipv4
+remediation:
+  headline: Security group exposes Telnet to the internet
+  risk_summary: Security groups must not allow Telnet (23) from 0.0.0.0/0
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: Security groups must not allow Telnet (23) from
+    0.0.0.0/0'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+display_title: Security group exposes Telnet to the internet
+pack_id: pack_aws_compute

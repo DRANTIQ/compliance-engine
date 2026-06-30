@@ -1,0 +1,29 @@
+policy_id: AWS_CMP_011
+title: In-use EBS volumes must be encrypted
+provider: aws
+resource_type: storage.volume
+provider_type: aws_ebs_volume
+severity: high
+description: In-use EBS volumes must be encrypted
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.encrypted
+    operator: eq
+    expected: false
+evidence_fields:
+- properties.volume_id
+- properties.encrypted
+remediation:
+  headline: Unencrypted EBS volume in use
+  risk_summary: In-use EBS volumes must be encrypted
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in AWS: In-use EBS volumes must be encrypted'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+display_title: Unencrypted EBS volume in use
+pack_id: pack_aws_compute_security

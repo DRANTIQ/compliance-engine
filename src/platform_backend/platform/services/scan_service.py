@@ -94,10 +94,14 @@ class ScanService:
                 "aws.iam",
                 "aws.s3",
                 "aws.ec2",
-                "aws.rds",
+                "aws.database",
                 "aws.efs",
                 "aws.logging",
                 "aws.network",
+                "aws.lambda",
+                "aws.guardduty",
+                "aws.ebs",
+                "aws.compute",
             ],
         }
 
