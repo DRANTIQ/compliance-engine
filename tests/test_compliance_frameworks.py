@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.migration_paths import migration_sql_path
 from platform_backend.compliance.frameworks import (
     CUSTOMER_PRIMARY_FRAMEWORK,
     INTERNAL_PARITY_FRAMEWORK,
@@ -68,7 +69,7 @@ def test_list_findings_enrich_hides_cis_mappings() -> None:
 
 
 def test_migration_017_seed_file_exists() -> None:
-    migration = REPO_ROOT.parent / "platform-db" / "migrations" / "017_commercial_compliance.sql"
+    migration = migration_sql_path("017_commercial_compliance.sql")
     assert migration.is_file()
     text = migration.read_text(encoding="utf-8")
     assert "drantiq_security_assessment_v1" in text
@@ -77,7 +78,7 @@ def test_migration_017_seed_file_exists() -> None:
 
 
 def test_migration_022_nist_baseline_expanded() -> None:
-    migration = REPO_ROOT.parent / "platform-db" / "migrations" / "022_nist_moderate_baseline.sql"
+    migration = migration_sql_path("022_nist_moderate_baseline.sql")
     assert migration.is_file()
     text = migration.read_text(encoding="utf-8")
     assert "nist_800_53_rev5_aws" in text

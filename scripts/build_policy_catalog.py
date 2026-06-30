@@ -9,7 +9,19 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+GENERATED_MIGRATIONS_DIR = REPO_ROOT / "generated" / "migrations"
+PLATFORM_DB_MIGRATIONS_DIR = REPO_ROOT.parent / "platform-db" / "migrations"
 POLICIES_DIR = REPO_ROOT / "policy" / "catalog" / "policies"
+
+
+def write_migration_sql(filename: str, sql: str) -> None:
+    """Write migration SQL for CI (generated/) and platform-db sibling when checked out."""
+    GENERATED_MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    (GENERATED_MIGRATIONS_DIR / filename).write_text(sql, encoding="utf-8")
+    if PLATFORM_DB_MIGRATIONS_DIR.is_dir():
+        (PLATFORM_DB_MIGRATIONS_DIR / filename).write_text(sql, encoding="utf-8")
+
+
 PACKS_DIR = REPO_ROOT / "policy" / "catalog" / "packs"
 FIXTURE = (
     REPO_ROOT.parent
@@ -592,8 +604,7 @@ ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
             f"WHERE policy_id = '{policy_id}';\n"
         )
 
-    out = REPO_ROOT.parent / "platform-db" / "migrations" / "017_commercial_compliance.sql"
-    out.write_text(sql, encoding="utf-8")
+    write_migration_sql("017_commercial_compliance.sql", sql)
 
     # Regenerated seed artifact for review — never overwrites applied migrations.
     generated = REPO_ROOT / "generated" / "compliance_framework_seed.sql"
@@ -673,8 +684,7 @@ VALUES
 {",\n".join(mapping_rows) if mapping_rows else f"  ('{framework_id}', 'AC-3', 'AWS_S3_002')"}
 ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
 """
-    out = REPO_ROOT.parent / "platform-db" / "migrations" / "022_nist_moderate_baseline.sql"
-    out.write_text(sql, encoding="utf-8")
+    write_migration_sql("022_nist_moderate_baseline.sql", sql)
 
 
 SOC2_BASELINE_YAML = REPO_ROOT / "policy" / "catalog" / "mappings" / "soc2_aws.yaml"
@@ -795,8 +805,7 @@ VALUES
 {",\n".join(mapping_rows) if mapping_rows else f"  ('{framework_id}', 'CC6.1', 'AWS_IAM_002')"}
 ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
 """
-    out = REPO_ROOT.parent / "platform-db" / "migrations" / "026_p5_soc2_mapping.sql"
-    out.write_text(sql, encoding="utf-8")
+    write_migration_sql("026_p5_soc2_mapping.sql", sql)
 
 
 P5_W1_MANIFEST = REPO_ROOT / "policy" / "catalog" / "p5_w1_compute.yaml"
@@ -942,8 +951,7 @@ VALUES
 {",\n".join(nist_mappings)}
 ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
 """
-    out = REPO_ROOT.parent / "platform-db" / "migrations" / f"{migration_stem}.sql"
-    out.write_text(sql, encoding="utf-8")
+    write_migration_sql(f"{migration_stem}.sql", sql)
 
 
 def main() -> None:
@@ -986,10 +994,10 @@ def main() -> None:
     write_cis_mappings(
         controls, REPO_ROOT / "policy" / "catalog" / "mappings" / "cis_aws_v6.yaml"
     )
-    write_migration(
-        controls,
-        REPO_ROOT.parent / "platform-db" / "migrations" / "010_cis_policy_mappings.sql",
-    )
+    cis_migration = GENERATED_MIGRATIONS_DIR / "010_cis_policy_mappings.sql"
+    write_migration(controls, cis_migration)
+    if PLATFORM_DB_MIGRATIONS_DIR.is_dir():
+        write_migration(controls, PLATFORM_DB_MIGRATIONS_DIR / "010_cis_policy_mappings.sql")
     print(
         "Wrote policy YAMLs, packs/aws.yaml, 017/022/026/023/024/025 migrations, "
         f"aws_cspm_v1.yaml (+{len(expansion_policies)} expansion), cis_aws_v6.yaml, soc2_aws.yaml"

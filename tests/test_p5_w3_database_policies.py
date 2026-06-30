@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from tests.migration_paths import migration_sql_path
 from platform_backend.assets.ingest.normalizer import normalize_bronze
 from platform_backend.policy.catalog.loader import load_policies
 from platform_backend.policy.engine.evaluator import evaluate_policy_logic
@@ -83,7 +84,7 @@ def test_normalize_rds_instance_extended_fields() -> None:
 
 
 def test_migration_025_exists() -> None:
-    migration = REPO_ROOT.parent / "platform-db" / "migrations" / "025_p5_database_services.sql"
+    migration = migration_sql_path("025_p5_database_services.sql")
     assert migration.is_file()
     text = migration.read_text(encoding="utf-8")
     assert "AWS_RDS_004" in text

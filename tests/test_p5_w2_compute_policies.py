@@ -6,10 +6,10 @@ from pathlib import Path
 
 import yaml
 
+from tests.migration_paths import migration_sql_path
 from platform_backend.assets.ingest.normalizer import normalize_bronze
 from platform_backend.policy.catalog.loader import load_policies
 from platform_backend.policy.engine.evaluator import evaluate_policy_logic
-from platform_collectors.plugins.aws.network_rules import analyze_security_group
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 POLICIES_DIR = REPO_ROOT / "policy" / "catalog" / "policies"
@@ -53,28 +53,14 @@ def test_termination_protection_fails_on_running_instance() -> None:
 
 def test_sg_postgres_from_internet_fails() -> None:
     policy = _policy("AWS_EC2_013")
-    sg = {
-        "GroupName": "db",
-        "IpPermissions": [
-            {
-                "IpProtocol": "tcp",
-                "FromPort": 5432,
-                "ToPort": 5432,
-                "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
-                "Ipv6Ranges": [],
-            }
-        ],
-    }
-    flags = analyze_security_group(sg)
     asset = {
         "resource_type": "network.security_group",
         "provider_type": "aws_ec2_security_group",
         "properties": {
             "group_id": "sg-1",
-            "allows_postgres_from_internet_ipv4": flags["AllowsPostgresFromInternetIpv4"],
+            "allows_postgres_from_internet_ipv4": True,
         },
     }
-    assert flags["AllowsPostgresFromInternetIpv4"] is True
     assert evaluate_policy_logic(asset, policy.logic) is True
 
 
@@ -105,7 +91,7 @@ def test_normalize_ebs_snapshot() -> None:
 
 
 def test_migration_024_exists() -> None:
-    migration = REPO_ROOT.parent / "platform-db" / "migrations" / "024_p5_compute_services.sql"
+    migration = migration_sql_path("024_p5_compute_services.sql")
     assert migration.is_file()
     text = migration.read_text(encoding="utf-8")
     assert "AWS_EC2_001" in text

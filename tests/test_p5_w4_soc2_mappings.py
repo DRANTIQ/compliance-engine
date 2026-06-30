@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from tests.migration_paths import migration_sql_path
 from platform_backend.compliance.frameworks import SOC2_AWS_FRAMEWORK, SCAN_FRAMEWORK_IDS
 
 
@@ -42,7 +43,7 @@ def test_soc2_baseline_has_manual_and_automated_controls() -> None:
 
 
 def test_migration_026_soc2_seed_exists() -> None:
-    migration = REPO_ROOT.parent / "platform-db" / "migrations" / "026_p5_soc2_mapping.sql"
+    migration = migration_sql_path("026_p5_soc2_mapping.sql")
     assert migration.is_file()
     text = migration.read_text(encoding="utf-8")
     assert "soc2_aws" in text
