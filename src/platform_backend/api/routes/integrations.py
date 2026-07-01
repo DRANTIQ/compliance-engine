@@ -110,6 +110,13 @@ class IntegrationVerifyResponse(BaseModel):
     message: str | None = None
 
 
+class AzureRotateSecretRequest(BaseModel):
+    client_secret: str = Field(
+        min_length=8,
+        description="New service principal client secret (encrypted at rest, never returned)",
+    )
+
+
 @router.post(
     "/aws",
     response_model=IntegrationResponse,
@@ -233,3 +240,37 @@ async def verify_integration(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return IntegrationVerifyResponse(**result)
+
+
+@router.post(
+    "/{integration_id}/rotate-secret",
+    response_model=IntegrationResponse,
+    summary="Rotate Azure client secret",
+    description=(
+        "Update the stored Azure service principal client secret without recreating the integration. "
+        "Verifies the new secret against Azure before saving and sets status to **active** on success."
+    ),
+    responses={
+        200: {"description": "Secret rotated"},
+        404: {"description": "Integration not found"},
+        400: {"description": "Validation or verification failed"},
+    },
+)
+async def rotate_azure_secret(
+    integration_id: UUID,
+    body: AzureRotateSecretRequest,
+    principal: PlatformPrincipal = Depends(require_write_access),
+    service: IntegrationService = Depends(get_integration_service),
+) -> IntegrationResponse:
+    tenant_id = principal.tenant_id
+    try:
+        row = await service.rotate_azure_secret(
+            tenant_id,
+            integration_id,
+            client_secret=body.client_secret,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return IntegrationResponse(**row)

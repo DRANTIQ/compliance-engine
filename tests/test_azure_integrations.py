@@ -124,6 +124,7 @@ async def test_verify_azure_maps_auth_failure() -> None:
             "azure_client_secret": secret,
         }
     )
+    repo.update_status = AsyncMock()
     service = IntegrationService(MagicMock())
     service._repo = repo
 
@@ -142,3 +143,147 @@ async def test_verify_azure_maps_auth_failure() -> None:
 
     assert result["valid"] is False
     assert "invalid client secret" in result["message"]
+    repo.update_status.assert_awaited_once_with(SCAN_TENANT, INTEGRATION_ID, "invalid")
+
+
+@pytest.mark.asyncio
+async def test_verify_azure_marks_active_on_success() -> None:
+    from platform_backend.platform.integrations import azure_verify
+
+    repo = MagicMock()
+    secret = encrypt_credential("good-secret-12345678")
+    repo.get = AsyncMock(
+        return_value={
+            "provider": "azure",
+            "account_id": SUBSCRIPTION_ID,
+            "azure_tenant_id": TENANT_ID,
+            "azure_client_id": CLIENT_ID,
+            "azure_client_secret": secret,
+        }
+    )
+    repo.update_status = AsyncMock()
+    service = IntegrationService(MagicMock())
+    service._repo = repo
+
+    original = azure_verify.verify_subscription_access
+    azure_verify.verify_subscription_access = lambda **_kwargs: {
+        "subscription_id": SUBSCRIPTION_ID,
+        "display_name": "Test Sub",
+        "tenant_id": TENANT_ID,
+        "state": "Enabled",
+    }
+    try:
+        result = await service.verify_azure(SCAN_TENANT, INTEGRATION_ID)
+    finally:
+        azure_verify.verify_subscription_access = original
+
+    assert result["valid"] is True
+    repo.update_status.assert_awaited_once_with(SCAN_TENANT, INTEGRATION_ID, "active")
+
+
+@pytest.mark.asyncio
+async def test_rotate_azure_secret_verifies_and_updates() -> None:
+    from platform_backend.platform.integrations import azure_verify
+
+    repo = MagicMock()
+    secret = encrypt_credential("old-secret-12345678")
+    repo.get = AsyncMock(
+        return_value={
+            "provider": "azure",
+            "account_id": SUBSCRIPTION_ID,
+            "azure_tenant_id": TENANT_ID,
+            "azure_client_id": CLIENT_ID,
+            "azure_client_secret": secret,
+        }
+    )
+    repo.update_azure_client_secret = AsyncMock(
+        return_value={
+            "id": INTEGRATION_ID,
+            "tenant_id": SCAN_TENANT,
+            "provider": "azure",
+            "account_id": SUBSCRIPTION_ID,
+            "role_arn": None,
+            "regions": ["eastus"],
+            "status": "active",
+            "azure_tenant_id": TENANT_ID,
+            "azure_client_id": CLIENT_ID,
+            "created_at": MagicMock(isoformat=lambda: "2026-06-30T00:00:00+00:00"),
+            "updated_at": MagicMock(isoformat=lambda: "2026-06-30T00:00:00+00:00"),
+        }
+    )
+    service = IntegrationService(MagicMock())
+    service._repo = repo
+
+    original = azure_verify.verify_subscription_access
+    azure_verify.verify_subscription_access = lambda **_kwargs: {
+        "subscription_id": SUBSCRIPTION_ID,
+        "display_name": "Test Sub",
+    }
+    try:
+        result = await service.rotate_azure_secret(
+            SCAN_TENANT,
+            INTEGRATION_ID,
+            client_secret="new-secret-12345678",
+        )
+    finally:
+        azure_verify.verify_subscription_access = original
+
+    assert result["status"] == "active"
+    encrypted = repo.update_azure_client_secret.await_args.kwargs["azure_client_secret_encrypted"]
+    assert decrypt_credential(encrypted) == "new-secret-12345678"
+
+
+@pytest.mark.asyncio
+async def test_rotate_azure_secret_rejects_bad_secret() -> None:
+    from platform_backend.platform.integrations import azure_verify
+    from platform_backend.platform.integrations.azure_verify import AzureVerificationError
+
+    repo = MagicMock()
+    secret = encrypt_credential("old-secret-12345678")
+    repo.get = AsyncMock(
+        return_value={
+            "provider": "azure",
+            "account_id": SUBSCRIPTION_ID,
+            "azure_tenant_id": TENANT_ID,
+            "azure_client_id": CLIENT_ID,
+            "azure_client_secret": secret,
+        }
+    )
+    repo.update_status = AsyncMock()
+    service = IntegrationService(MagicMock())
+    service._repo = repo
+
+    original = azure_verify.verify_subscription_access
+
+    def fail(**_kwargs):
+        raise AzureVerificationError("invalid client secret", status_code=401)
+
+    azure_verify.verify_subscription_access = fail
+    try:
+        with pytest.raises(ValueError, match="invalid client secret"):
+            await service.rotate_azure_secret(
+                SCAN_TENANT,
+                INTEGRATION_ID,
+                client_secret="bad-secret-12345678",
+            )
+    finally:
+        azure_verify.verify_subscription_access = original
+
+    repo.update_azure_client_secret.assert_not_called()
+    repo.update_status.assert_awaited_once_with(SCAN_TENANT, INTEGRATION_ID, "invalid")
+
+
+@pytest.mark.asyncio
+async def test_mark_invalid_if_azure_auth_failure() -> None:
+    repo = MagicMock()
+    repo.get = AsyncMock(return_value={"provider": "azure"})
+    repo.update_status = AsyncMock()
+    service = IntegrationService(MagicMock())
+    service._repo = repo
+
+    await service.mark_invalid_if_azure_auth_failure(
+        SCAN_TENANT,
+        INTEGRATION_ID,
+        error={"auth_failure": True, "message": "bad creds"},
+    )
+    repo.update_status.assert_awaited_once_with(SCAN_TENANT, INTEGRATION_ID, "invalid")

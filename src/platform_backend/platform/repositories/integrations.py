@@ -116,6 +116,53 @@ class IntegrationRepository:
         )
         return dict(row) if row else None
 
+    async def update_status(
+        self,
+        tenant_id: UUID,
+        integration_id: UUID,
+        status: str,
+    ) -> dict[str, Any] | None:
+        row = await self._db.fetchrow(
+            tenant_id,
+            """
+            UPDATE platform.integrations
+            SET status = $3, updated_at = now()
+            WHERE tenant_id = $1 AND id = $2
+            RETURNING id, tenant_id, provider, account_id, role_arn, regions, status,
+                      azure_tenant_id, azure_client_id, created_at, updated_at
+            """,
+            tenant_id,
+            integration_id,
+            status,
+        )
+        return dict(row) if row else None
+
+    async def update_azure_client_secret(
+        self,
+        tenant_id: UUID,
+        integration_id: UUID,
+        *,
+        azure_client_secret_encrypted: str,
+        status: str = "active",
+    ) -> dict[str, Any] | None:
+        row = await self._db.fetchrow(
+            tenant_id,
+            """
+            UPDATE platform.integrations
+            SET azure_client_secret = $3,
+                status = $4,
+                updated_at = now()
+            WHERE tenant_id = $1 AND id = $2 AND provider = 'azure'
+            RETURNING id, tenant_id, provider, account_id, role_arn, regions, status,
+                      azure_tenant_id, azure_client_id, created_at, updated_at
+            """,
+            tenant_id,
+            integration_id,
+            azure_client_secret_encrypted,
+            status,
+        )
+        return dict(row) if row else None
+
 
 class ScanRepository:
     def __init__(self, db: DatabasePool) -> None:

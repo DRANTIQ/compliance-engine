@@ -286,6 +286,7 @@ class IntegrationService:
         tenant_id: UUID,
         integration_id: UUID,
     ) -> dict[str, Any]:
+        from platform_backend.platform.integrations.auth_errors import verify_failure_is_auth
         from platform_backend.platform.integrations.azure_verify import (
             AzureVerificationError,
             verify_subscription_access,
@@ -307,17 +308,95 @@ class IntegrationService:
                 subscription_id=row["account_id"],
             )
         except AzureVerificationError as exc:
+            if verify_failure_is_auth(message=str(exc), status_code=exc.status_code):
+                await self._repo.update_status(tenant_id, integration_id, "invalid")
             return {
                 "valid": False,
                 "provider": "azure",
                 "subscription_id": row["account_id"],
                 "message": str(exc),
             }
+        await self._repo.update_status(tenant_id, integration_id, "active")
         return {
             "valid": True,
             "provider": "azure",
             **result,
         }
+
+    async def rotate_azure_secret(
+        self,
+        tenant_id: UUID,
+        integration_id: UUID,
+        *,
+        client_secret: str,
+    ) -> dict[str, Any]:
+        from platform_backend.platform.integrations.auth_errors import verify_failure_is_auth
+        from platform_backend.platform.integrations.azure_verify import (
+            AzureVerificationError,
+            verify_subscription_access,
+        )
+
+        row = await self._repo.get(tenant_id, integration_id)
+        if not row:
+            raise LookupError("integration not found")
+        if row.get("provider") != "azure":
+            raise ValueError("secret rotation is only supported for Azure integrations")
+
+        try:
+            await asyncio.to_thread(
+                verify_subscription_access,
+                tenant_id=row["azure_tenant_id"],
+                client_id=row["azure_client_id"],
+                client_secret=client_secret,
+                subscription_id=row["account_id"],
+            )
+        except AzureVerificationError as exc:
+            if verify_failure_is_auth(message=str(exc), status_code=exc.status_code):
+                await self._repo.update_status(tenant_id, integration_id, "invalid")
+            raise ValueError(str(exc)) from exc
+
+        encrypted = encrypt_credential_safe(client_secret)
+        updated = await self._repo.update_azure_client_secret(
+            tenant_id,
+            integration_id,
+            azure_client_secret_encrypted=encrypted,
+            status="active",
+        )
+        if not updated:
+            raise LookupError("integration not found")
+        return self._public_integration(updated)
+
+    async def mark_invalid_if_azure_auth_failure(
+        self,
+        tenant_id: UUID,
+        integration_id: UUID,
+        *,
+        error: dict[str, Any] | None = None,
+        errors: list[dict[str, Any]] | None = None,
+        resource_count: int | None = None,
+    ) -> None:
+        from platform_backend.platform.integrations.auth_errors import (
+            collection_errors_indicate_auth_failure,
+            is_azure_auth_failure,
+        )
+
+        row = await self._repo.get(tenant_id, integration_id)
+        if not row or row.get("provider") != "azure":
+            return
+
+        should_mark = is_azure_auth_failure(error)
+        if not should_mark and errors is not None:
+            if resource_count == 0 and collection_errors_indicate_auth_failure(errors):
+                should_mark = True
+            elif collection_errors_indicate_auth_failure(errors) and len(errors) >= 3:
+                should_mark = True
+
+        if should_mark:
+            await self._repo.update_status(tenant_id, integration_id, "invalid")
+            logger.info(
+                "integration marked invalid after auth failure",
+                extra={"tenant_id": str(tenant_id), "integration_id": str(integration_id)},
+            )
 
     async def list(self, tenant_id: UUID) -> list[dict[str, Any]]:
         rows = await self._repo.list(tenant_id)

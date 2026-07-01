@@ -37,6 +37,9 @@ jobs:
       - name: Run tests
         run: pytest tests/ -q --ignore=tests/integration
 
+      - name: Azure mock pipeline (collector → normalizer → policy)
+        run: pytest tests/test_azure_mock_pipeline.py -q
+
       - name: Ruff
         run: ruff check src tests
         continue-on-error: true

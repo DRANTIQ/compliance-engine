@@ -15,6 +15,7 @@ from platform_backend.config.settings import Settings, get_settings
 from platform_backend.db.pool import DatabasePool
 from platform_backend.platform.models.scan import ScanStatus
 from platform_backend.platform.repositories.integrations import ScanRepository
+from platform_backend.platform.services.scan_service import IntegrationService
 from platform_backend.queue.events import publish_policy_evaluate
 from platform_backend.queue.redis_client import close_redis_client, create_redis_client
 
@@ -32,6 +33,7 @@ class IngestWorker:
         self._redis = redis_client
         self._settings = settings or get_settings()
         self._scans = ScanRepository(db)
+        self._integrations = IntegrationService(db, self._settings)
         self._writer = AssetWriter(db)
         self._reader = SnapshotReader(self._settings)
 
@@ -80,6 +82,7 @@ class IngestWorker:
                 error=payload.get("error"),
                 completed=True,
             )
+            await self._maybe_mark_integration_invalid(tenant_id, scan_id, payload)
             await self._writer.append_event(
                 tenant_id,
                 scan_id,
@@ -128,6 +131,8 @@ class IngestWorker:
             resource_count=payload.get("resource_count"),
             completed=True,
         )
+
+        await self._maybe_mark_integration_invalid(tenant_id, scan_id, payload)
 
         await self._set_scan_status(tenant_id, scan_id, ScanStatus.INGESTING)
 
@@ -194,6 +199,34 @@ class IngestWorker:
                 "resources": resource_count,
             },
         )
+
+
+    async def _maybe_mark_integration_invalid(
+        self,
+        tenant_id: UUID,
+        scan_id: UUID,
+        payload: dict[str, Any],
+    ) -> None:
+        run = await self._scans.get_collection_run(tenant_id, scan_id)
+        if not run:
+            return
+        integration_id = run["integration_id"]
+        error = payload.get("error")
+        errors = payload.get("errors")
+        if isinstance(errors, list):
+            await self._integrations.mark_invalid_if_azure_auth_failure(
+                tenant_id,
+                integration_id,
+                error=error if isinstance(error, dict) else None,
+                errors=errors,
+                resource_count=payload.get("resource_count"),
+            )
+        elif isinstance(error, dict):
+            await self._integrations.mark_invalid_if_azure_auth_failure(
+                tenant_id,
+                integration_id,
+                error=error,
+            )
 
 
 async def run_worker() -> None:

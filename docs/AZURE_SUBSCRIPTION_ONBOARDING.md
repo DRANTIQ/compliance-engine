@@ -86,6 +86,20 @@ You create **one app registration / service principal** in **your** tenant. Dran
 
 > For Key Vault and Defender checks in later releases, Drantiq may document additional narrow read roles. MVP collection uses **Reader** on the subscription.
 
+### Optional — Microsoft Defender for Cloud (recommended)
+
+Defender pricing checks require the **`Microsoft.Security`** resource provider on the subscription. Many new subscriptions are not registered by default.
+
+If you skip this step, scans can still **complete** but may show **Completed with errors** and Defender controls (e.g. **AZURE_DEF_001**) may be **not assessed**.
+
+**Portal:** Microsoft Defender for Cloud → Get started, or Subscriptions → Resource providers → register **Microsoft.Security**
+
+**CLI:**
+
+```bash
+az provider register --namespace Microsoft.Security
+```
+
 ---
 
 ## Step 4 — Connect in Drantiq
@@ -117,8 +131,22 @@ The client secret is **encrypted at rest** and never returned in API responses.
 ## Rotating the client secret
 
 1. Create a new secret in Entra ID
-2. Re-register the integration in Drantiq with the new secret (or use a future rotate API)
+2. Update the secret in Drantiq:
+
+```http
+POST /v1/integrations/{integration_id}/rotate-secret
+Content-Type: application/json
+
+{
+  "client_secret": "your-new-client-secret"
+}
+```
+
+Or use **Integrations → Fix Azure connection** in the app (invalid integrations show an update form).
+
 3. Revoke the old secret in Azure
+
+When credentials fail during a scan, the integration is marked **invalid** until you rotate the secret or verify access again.
 
 ---
 
@@ -129,6 +157,10 @@ The client secret is **encrypted at rest** and never returned in API responses.
 | Verify returns `invalid client secret` | Wrong secret or expired secret |
 | Verify returns subscription lookup failed (403) | Reader role not assigned on subscription |
 | Scan stays queued | Collector worker not listening on `platform:collect.azure` (ops) |
+| Scan **Completed with errors**, resources collected, message mentions **Microsoft.Security** or **register to Microsoft.Security** | Defender for Cloud not enabled on subscription — register `Microsoft.Security` (see optional step above) and re-scan |
+| Defender controls **not assessed** after an otherwise successful scan | Same as above — optional Defender registration |
+
+**Internal runbook:** [AZURE_SCAN_TROUBLESHOOTING.md](./AZURE_SCAN_TROUBLESHOOTING.md)
 
 ---
 
