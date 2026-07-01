@@ -41,6 +41,20 @@ RESOURCE_TYPE_LABEL: dict[str, str] = {
 }
 
 DATA_SENSITIVE_TYPES = frozenset({"storage.bucket", "storage.filesystem", "database.instance"})
+IDENTITY_RESOURCE_TYPES = frozenset({"identity.user", "identity.account", "identity.certificate"})
+LOGGING_POLICY_PREFIXES = ("AWS_LOG_", "AWS_S3_003", "AWS_S3_004", "AWS_CMP_003")
+ENCRYPTION_POLICY_IDS = frozenset(
+    {
+        "AWS_S3_001",
+        "AWS_RDS_001",
+        "AWS_EFS_001",
+        "AWS_NET_001",
+        "AWS_EC2_006",
+        "AWS_EC2_007",
+        "AWS_EC2_008",
+        "AWS_CMP_011",
+    }
+)
 
 
 def resource_type_label(resource_type: str) -> str:
@@ -111,23 +125,82 @@ def _internet_exposed(finding: dict[str, Any]) -> bool:
     return finding.get("severity") == "critical" and finding.get("policy_id", "").startswith("AWS_S3_")
 
 
+def _publicly_accessible(finding: dict[str, Any]) -> bool:
+    if _internet_exposed(finding):
+        return True
+    evidence = finding.get("evidence") or {}
+    props = evidence.get("properties") if isinstance(evidence.get("properties"), dict) else evidence
+    if isinstance(props, dict) and props.get("public") is True:
+        return True
+    policy_id = finding.get("policy_id", "")
+    return policy_id.startswith(("AWS_EC2_011", "AWS_EC2_012", "AWS_EC2_013", "AWS_CMP_013", "AWS_CMP_014"))
+
+
+def _identity_exposure(finding: dict[str, Any]) -> bool:
+    if finding.get("resource_type") in IDENTITY_RESOURCE_TYPES:
+        return True
+    return finding.get("policy_id", "").startswith("AWS_IAM_")
+
+
+def _why_badges(finding: dict[str, Any], signals: dict[str, Any]) -> list[dict[str, str]]:
+    badges: list[dict[str, str]] = []
+    if signals["internet_exposed"]:
+        badges.append({"id": "internet_exposed", "label": "Internet exposed"})
+    if signals["data_sensitive"]:
+        badges.append({"id": "sensitive_data", "label": "Sensitive data"})
+    if signals["publicly_accessible"]:
+        badges.append({"id": "public_resource", "label": "Public resource"})
+    if signals["identity_exposure"]:
+        badges.append({"id": "identity_exposure", "label": "Identity exposure"})
+    policy_id = finding.get("policy_id", "")
+    if policy_id.startswith(LOGGING_POLICY_PREFIXES):
+        badges.append({"id": "insufficient_logging", "label": "Insufficient logging"})
+    if policy_id in ENCRYPTION_POLICY_IDS or "encrypt" in policy_id.lower():
+        badges.append({"id": "no_encryption", "label": "No encryption"})
+    return badges
+
+
 def compute_risk_signals(finding: dict[str, Any]) -> dict[str, Any]:
-    """Customer risk score from severity + exposure signals (foundation for Wiz-style prioritization)."""
+    """Composite risk signals — extensible schema for Wiz-style prioritization."""
     score = SEVERITY_RISK_BASE.get(finding.get("severity", ""), 45)
     internet = _internet_exposed(finding)
     sensitive = finding.get("resource_type") in DATA_SENSITIVE_TYPES
+    publicly_accessible = _publicly_accessible(finding)
+    identity_exposure = _identity_exposure(finding)
     if internet:
         score = min(100, score + 12)
     if sensitive:
         score = min(100, score + 8)
+    if publicly_accessible and not internet:
+        score = min(100, score + 6)
+    if identity_exposure:
+        score = min(100, score + 5)
     evidence = finding.get("evidence") or {}
     confidence = "high" if isinstance(evidence, dict) and evidence else "medium"
-    return {
+
+    # Reserved for future scoring — values default false until assessed.
+    business_critical = False
+    lateral_movement = False
+    blast_radius = False
+
+    signals = {
         "risk_score": score,
         "internet_exposed": internet,
         "data_sensitive": sensitive,
         "confidence": confidence,
+        "publicly_accessible": publicly_accessible,
+        "identity_exposure": identity_exposure,
+        "business_critical": business_critical,
+        "lateral_movement": lateral_movement,
+        "blast_radius": blast_radius,
+        "assessed": {
+            "business_critical": False,
+            "lateral_movement": False,
+            "blast_radius": False,
+        },
     }
+    signals["why_badges"] = _why_badges(finding, signals)
+    return signals
 
 
 def build_related_resources(
@@ -169,12 +242,14 @@ def build_related_resources(
 
 
 def fix_priority_sort_key(finding: dict[str, Any], remediation: dict[str, Any]) -> tuple:
+    signals = compute_risk_signals(finding)
+    score_rank = -signals["risk_score"]
     sev = SEVERITY_ORDER.get(finding.get("severity", ""), 99)
-    exposure = 0 if _internet_exposed(finding) else 1
-    sensitivity = 0 if finding.get("resource_type") in DATA_SENSITIVE_TYPES else 1
+    exposure = 0 if signals["internet_exposed"] else 1
+    sensitivity = 0 if signals["data_sensitive"] else 1
     has_framework = 0 if remediation.get("framework_mappings") else 1
     minutes = remediation.get("estimated_fix_minutes") or 99
-    return (sev, exposure, sensitivity, has_framework, minutes)
+    return (score_rank, sev, exposure, sensitivity, has_framework, minutes)
 
 
 def customer_remediation(remediation: dict[str, Any]) -> dict[str, Any]:
@@ -226,11 +301,28 @@ def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool =
     return out
 
 
+def build_resource_inventory_stats(
+    findings: list[dict[str, Any]],
+    *,
+    resource_total: int,
+) -> dict[str, int]:
+    """Distinct resources with at least one failing finding vs clean inventory."""
+    at_risk_ids = {f["resource_id"] for f in findings if f.get("result") == "fail" and f.get("resource_id")}
+    at_risk = len(at_risk_ids)
+    protected = max(0, resource_total - at_risk)
+    return {
+        "cloud_resources": resource_total,
+        "resources_at_risk": at_risk,
+        "resources_protected": protected,
+    }
+
+
 def build_risk_summary(
     findings: list[dict[str, Any]],
     *,
     compliance_score: float | None,
     top_n: int = 5,
+    resource_total: int | None = None,
 ) -> dict[str, Any]:
     fails = [f for f in findings if f.get("result") == "fail"]
     severity_counts = {k: 0 for k in ("critical", "high", "medium", "low", "info")}
@@ -249,6 +341,7 @@ def build_risk_summary(
             continue
         seen_policies.add(finding["policy_id"])
         rem = item["remediation"]
+        signals = item.get("risk_signals") or compute_risk_signals(finding)
         top_risks.append(
             {
                 "finding_id": finding["id"],
@@ -261,17 +354,21 @@ def build_risk_summary(
                 "why_it_matters": item["risk"],
                 "business_impact": item["business_impact"],
                 "estimated_fix_minutes": rem.get("estimated_fix_minutes") or rem.get("estimated_minutes"),
+                "risk_score": signals["risk_score"],
             }
         )
         if len(top_risks) >= top_n:
             break
 
-    return {
+    result: dict[str, Any] = {
         "score": compliance_score,
         "total_findings": len(fails),
         **severity_counts,
         "top_risks": top_risks,
     }
+    if resource_total is not None:
+        result.update(build_resource_inventory_stats(findings, resource_total=resource_total))
+    return result
 
 
 def build_fix_priorities(findings: list[dict[str, Any]], *, limit: int = 20) -> list[dict[str, Any]]:

@@ -11,6 +11,7 @@ from platform_backend.identity.models import PlatformPrincipal
 from platform_backend.compliance.frameworks import CUSTOMER_PRIMARY_FRAMEWORK
 from platform_backend.compliance.repository import ComplianceRepository
 from platform_backend.db.pool import DatabasePool
+from platform_backend.assets.repositories.resources import AssetRepository
 from platform_backend.findings.experience import build_fix_priorities, build_risk_summary
 from platform_backend.findings.repository import FindingsRepository
 from platform_backend.platform.repositories.scan_insights import ScanInsightsRepository
@@ -134,6 +135,10 @@ async def get_findings_repo(db: DatabasePool = Depends(get_db_pool)) -> Findings
     return FindingsRepository(db)
 
 
+async def get_assets_repo(db: DatabasePool = Depends(get_db_pool)) -> AssetRepository:
+    return AssetRepository(db)
+
+
 @router.get(
     "/{scan_id}/risk-summary",
     response_model=ScanRiskSummaryResponse,
@@ -149,6 +154,7 @@ async def get_scan_risk_summary(
     tenant_id: UUID = Depends(get_tenant_id),
     service: ScanService = Depends(get_scan_service),
     findings: FindingsRepository = Depends(get_findings_repo),
+    assets: AssetRepository = Depends(get_assets_repo),
     compliance: ComplianceRepository = Depends(get_compliance_repo),
     framework_id: str = Query(default=CUSTOMER_PRIMARY_FRAMEWORK),
     top_n: int = Query(default=5, ge=1, le=20),
@@ -162,7 +168,13 @@ async def get_scan_risk_summary(
         tenant_id, scan_id, framework_id, customer_visible_only=True
     )
     score = comp.get("score") if comp else None
-    summary = build_risk_summary(rows, compliance_score=score, top_n=top_n)
+    resource_total = await assets.count(tenant_id, scan_id)
+    summary = build_risk_summary(
+        rows,
+        compliance_score=score,
+        top_n=top_n,
+        resource_total=resource_total,
+    )
     return ScanRiskSummaryResponse(**summary)
 
 

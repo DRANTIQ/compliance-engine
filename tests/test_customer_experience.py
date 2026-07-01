@@ -5,6 +5,7 @@ from __future__ import annotations
 from platform_backend.findings.experience import (
     build_affected_resources,
     build_fix_priorities,
+    build_resource_inventory_stats,
     build_resource_risk,
     build_risk_summary,
     enrich_customer_finding,
@@ -50,6 +51,9 @@ def test_enrich_customer_finding_has_display_and_remediation() -> None:
     assert item.get("policy_version") == "1.0.0"
     assert item["risk_signals"]["risk_score"] >= 90
     assert item["risk_signals"]["internet_exposed"] is True
+    assert item["risk_signals"]["publicly_accessible"] is True
+    assert any(b["id"] == "internet_exposed" for b in item["risk_signals"]["why_badges"])
+    assert item["risk_signals"]["assessed"]["business_critical"] is False
     framework_names = {f["framework"] for f in item["frameworks"]}
     assert "SOC 2" in framework_names
     assert "NIST 800-53" in framework_names
@@ -87,6 +91,27 @@ def test_build_risk_summary() -> None:
     assert len(summary["top_risks"]) == 2
     assert summary["top_risks"][0]["severity"] == "critical"
     assert summary["top_risks"][0]["affected_resource"] == "steampipe-drantiq-test"
+    assert summary["top_risks"][0]["risk_score"] >= 90
+
+
+def test_build_resource_inventory_stats() -> None:
+    findings = [
+        _s3_finding(),
+        _s3_finding(
+            id="00000000-0000-0000-0000-000000000002",
+            resource_id="arn:aws:s3:::other-bucket",
+            policy_id="AWS_S3_003",
+            severity="high",
+        ),
+    ]
+    stats = build_resource_inventory_stats(findings, resource_total=10)
+    assert stats["cloud_resources"] == 10
+    assert stats["resources_at_risk"] == 2
+    assert stats["resources_protected"] == 8
+
+    summary = build_risk_summary(findings, compliance_score=72.0, top_n=5, resource_total=10)
+    assert summary["resources_at_risk"] == 2
+    assert summary["resources_protected"] == 8
 
 
 def test_build_fix_priorities_orders_critical_first() -> None:
@@ -103,6 +128,7 @@ def test_build_fix_priorities_orders_critical_first() -> None:
     assert priorities[0]["severity"] == "critical"
     assert priorities[0]["rank"] == 1
     assert priorities[0]["internet_exposed"] is True
+    assert priorities[0]["risk_score"] >= 90
 
 
 def test_build_resource_risk() -> None:

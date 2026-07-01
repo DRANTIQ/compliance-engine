@@ -35,6 +35,7 @@ class TopRiskItem(BaseModel):
     why_it_matters: str | None = None
     business_impact: str | None = None
     estimated_fix_minutes: int | None = None
+    risk_score: int = Field(default=0, description="Composite risk score 0–100")
 
 
 class ScanRiskSummaryResponse(BaseModel):
@@ -46,6 +47,9 @@ class ScanRiskSummaryResponse(BaseModel):
     low: int = 0
     info: int = 0
     top_risks: list[TopRiskItem]
+    cloud_resources: int | None = Field(default=None, description="Total inventoried cloud resources")
+    resources_at_risk: int | None = Field(default=None, description="Resources with at least one open risk")
+    resources_protected: int | None = Field(default=None, description="Resources with no failing findings")
 
 
 class FixPriorityItem(BaseModel):
@@ -67,11 +71,29 @@ class FixPriorityItem(BaseModel):
     risk_score: int = Field(default=0, description="Composite risk score 0–100")
 
 
+class RiskWhyBadge(BaseModel):
+    id: str
+    label: str
+
+
+class RiskSignalsAssessed(BaseModel):
+    business_critical: bool = False
+    lateral_movement: bool = False
+    blast_radius: bool = False
+
+
 class RiskSignalsResponse(BaseModel):
     risk_score: int
     internet_exposed: bool
     data_sensitive: bool
     confidence: str
+    publicly_accessible: bool = False
+    identity_exposure: bool = False
+    business_critical: bool = False
+    lateral_movement: bool = False
+    blast_radius: bool = False
+    why_badges: list[RiskWhyBadge] = Field(default_factory=list)
+    assessed: RiskSignalsAssessed = Field(default_factory=RiskSignalsAssessed)
 
 
 class RelatedResourceRef(BaseModel):

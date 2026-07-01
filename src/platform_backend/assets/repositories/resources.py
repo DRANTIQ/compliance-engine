@@ -55,6 +55,19 @@ class AssetRepository:
             )
         return [self._public(r) for r in rows]
 
+    async def count(self, tenant_id: UUID, scan_id: UUID) -> int:
+        row = await self._db.fetchrow(
+            tenant_id,
+            """
+            SELECT COUNT(*)::int AS n
+            FROM assets.resources
+            WHERE tenant_id = $1 AND scan_id = $2
+            """,
+            tenant_id,
+            scan_id,
+        )
+        return int(row["n"]) if row else 0
+
     async def get(
         self,
         tenant_id: UUID,
