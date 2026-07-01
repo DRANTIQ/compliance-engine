@@ -9,7 +9,9 @@ from platform_backend.compliance.frameworks import (
     CUSTOMER_PRIMARY_FRAMEWORK,
     INTERNAL_PARITY_FRAMEWORK,
     NIST_AWS_FRAMEWORK,
+    NIST_AZURE_FRAMEWORK,
     SOC2_AWS_FRAMEWORK,
+    SOC2_AZURE_FRAMEWORK,
     SCAN_FRAMEWORK_IDS,
 )
 from platform_backend.findings.presentation import enrich_finding
@@ -24,10 +26,14 @@ def test_scan_framework_ids_include_customer_and_internal() -> None:
     assert CUSTOMER_PRIMARY_FRAMEWORK == "drantiq_security_assessment_v1"
     assert INTERNAL_PARITY_FRAMEWORK == "cis_aws_v6"
     assert NIST_AWS_FRAMEWORK == "nist_800_53_rev5_aws"
+    assert NIST_AZURE_FRAMEWORK == "nist_800_53_rev5_azure"
     assert SOC2_AWS_FRAMEWORK == "soc2_aws"
+    assert SOC2_AZURE_FRAMEWORK == "soc2_azure"
     assert CUSTOMER_PRIMARY_FRAMEWORK in SCAN_FRAMEWORK_IDS
     assert INTERNAL_PARITY_FRAMEWORK in SCAN_FRAMEWORK_IDS
     assert SOC2_AWS_FRAMEWORK in SCAN_FRAMEWORK_IDS
+    assert NIST_AZURE_FRAMEWORK in SCAN_FRAMEWORK_IDS
+    assert SOC2_AZURE_FRAMEWORK in SCAN_FRAMEWORK_IDS
 
 
 def test_policy_packs_yaml_loads_domain_packs() -> None:

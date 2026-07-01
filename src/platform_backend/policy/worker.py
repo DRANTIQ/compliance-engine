@@ -101,9 +101,11 @@ class PolicyWorker:
                 fail_count=fail_count,
             )
             compliance_summary = await self._compliance.map_scan(tenant_id, scan_id)
+            run = await self._scans.get_collection_run(tenant_id, scan_id)
+            collection_status = (run or {}).get("status") or payload.get("collection_status") or "completed"
             final_status = (
                 ScanStatus.COMPLETED
-                if current == ScanStatus.INVENTORY_READY
+                if collection_status == "completed"
                 else ScanStatus.COMPLETED_WITH_ERRORS
             )
             await self._scans.update_status(

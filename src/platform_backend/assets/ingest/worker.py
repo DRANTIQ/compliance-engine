@@ -159,12 +159,9 @@ class IngestWorker:
         await self._writer.insert_resources(tenant_id, all_resources)
         await self._writer.insert_relationships(tenant_id, scan_id, all_relationships)
 
-        final_status = (
-            ScanStatus.INVENTORY_READY
-            if collection_status == "completed"
-            else ScanStatus.COMPLETED_WITH_ERRORS
-        )
-        await self._set_scan_status(tenant_id, scan_id, final_status, completed=True)
+        # Always hand off to policy evaluation as inventory_ready. Collection plugin
+        # warnings live on collection_runs.status; final scan status is set by policy worker.
+        await self._set_scan_status(tenant_id, scan_id, ScanStatus.INVENTORY_READY)
 
         resource_count = await self._writer.count_resources(tenant_id, scan_id)
         await self._writer.append_event(
@@ -174,17 +171,20 @@ class IngestWorker:
             {
                 "resource_count": resource_count,
                 "relationship_count": len(all_relationships),
+                "collection_status": collection_status,
             },
         )
 
-        if final_status in {ScanStatus.INVENTORY_READY, ScanStatus.COMPLETED_WITH_ERRORS}:
-            await publish_policy_evaluate(
-                self._redis,
-                self._settings.policy_queue_key,
-                tenant_id=tenant_id,
-                scan_id=scan_id,
-                payload={"resource_count": resource_count},
-            )
+        await publish_policy_evaluate(
+            self._redis,
+            self._settings.policy_queue_key,
+            tenant_id=tenant_id,
+            scan_id=scan_id,
+            payload={
+                "resource_count": resource_count,
+                "collection_status": collection_status,
+            },
+        )
 
         logger.info(
             "ingest complete",
