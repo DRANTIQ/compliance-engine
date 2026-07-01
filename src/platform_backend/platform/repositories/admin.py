@@ -141,19 +141,24 @@ class AdminRepository:
     ) -> list[dict[str, Any]]:
         tenants = await self.list_tenants()
         results: list[dict[str, Any]] = []
+        scan_select = """
+            SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id, s.error,
+                   s.started_at, s.completed_at, s.created_at, s.updated_at,
+                   cr.account_id, cr.status AS collection_status,
+                   i.provider
+            FROM platform.scans s
+            JOIN platform.collection_runs cr
+              ON cr.scan_id = s.id AND cr.tenant_id = s.tenant_id
+            JOIN platform.integrations i
+              ON i.id = s.integration_id AND i.tenant_id = s.tenant_id
+            WHERE s.tenant_id = $1
+        """
         for tenant in tenants:
             tenant_id = tenant["id"]
             if status:
                 rows = await self._db.fetch(
                     tenant_id,
-                    """
-                    SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id,
-                           s.started_at, s.completed_at, s.created_at, s.updated_at
-                    FROM platform.scans s
-                    WHERE s.tenant_id = $1 AND s.status = $2
-                    ORDER BY s.updated_at DESC
-                    LIMIT $3
-                    """,
+                    scan_select + " AND s.status = $2 ORDER BY s.updated_at DESC LIMIT $3",
                     tenant_id,
                     status,
                     limit,
@@ -161,14 +166,7 @@ class AdminRepository:
             else:
                 rows = await self._db.fetch(
                     tenant_id,
-                    """
-                    SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id,
-                           s.started_at, s.completed_at, s.created_at, s.updated_at
-                    FROM platform.scans s
-                    WHERE s.tenant_id = $1
-                    ORDER BY s.updated_at DESC
-                    LIMIT $2
-                    """,
+                    scan_select + " ORDER BY s.updated_at DESC LIMIT $2",
                     tenant_id,
                     limit,
                 )
@@ -192,9 +190,15 @@ class AdminRepository:
         rows = await self._db.fetch(
             tenant_id,
             """
-            SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id,
-                   s.started_at, s.completed_at, s.created_at, s.updated_at
+            SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id, s.error,
+                   s.started_at, s.completed_at, s.created_at, s.updated_at,
+                   cr.account_id, cr.status AS collection_status,
+                   i.provider
             FROM platform.scans s
+            JOIN platform.collection_runs cr
+              ON cr.scan_id = s.id AND cr.tenant_id = s.tenant_id
+            JOIN platform.integrations i
+              ON i.id = s.integration_id AND i.tenant_id = s.tenant_id
             WHERE s.tenant_id = $1
             ORDER BY s.updated_at DESC
             LIMIT $2
@@ -210,6 +214,47 @@ class AdminRepository:
             }
             for row in rows
         ]
+
+    async def get_scan_detail(self, tenant_id: UUID, scan_id: UUID) -> dict[str, Any] | None:
+        tenant = await self.get_tenant(tenant_id)
+        if not tenant:
+            return None
+        row = await self._db.fetchrow(
+            tenant_id,
+            """
+            SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id, s.error,
+                   s.started_at, s.completed_at, s.created_at, s.updated_at,
+                   cr.account_id, cr.status AS collection_status, cr.error AS collection_error,
+                   cr.resource_count, cr.manifest_s3_uri,
+                   i.provider, i.azure_tenant_id, i.azure_client_id, i.role_arn
+            FROM platform.scans s
+            JOIN platform.collection_runs cr
+              ON cr.scan_id = s.id AND cr.tenant_id = s.tenant_id
+            JOIN platform.integrations i
+              ON i.id = s.integration_id AND i.tenant_id = s.tenant_id
+            WHERE s.tenant_id = $1 AND s.id = $2
+            """,
+            tenant_id,
+            scan_id,
+        )
+        if not row:
+            return None
+        events = await self._db.fetch(
+            tenant_id,
+            """
+            SELECT event_type, payload, created_at
+            FROM assets.collection_events
+            WHERE tenant_id = $1 AND scan_id = $2
+            ORDER BY created_at ASC
+            """,
+            tenant_id,
+            scan_id,
+        )
+        detail = dict(row)
+        detail["tenant_name"] = tenant["name"]
+        detail["tenant_slug"] = tenant["slug"]
+        detail["timeline"] = [dict(e) for e in events]
+        return detail
 
     async def count_tenants(self) -> int:
         value = await self._db.fetchrow_global("SELECT COUNT(*)::int AS n FROM platform.tenants")

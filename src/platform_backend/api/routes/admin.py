@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 from typing import Any
@@ -29,8 +30,24 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
             out[key] = str(value)
         elif isinstance(value, datetime):
             out[key] = value.isoformat()
+        elif key in {"error", "collection_error"} and value is not None and not isinstance(value, dict):
+            out[key] = json.loads(value) if isinstance(value, str) else value
         else:
             out[key] = value
+    return out
+
+
+def _serialize_scan_row(row: dict[str, Any]) -> dict[str, Any]:
+    out = _serialize_row(row)
+    if "timeline" in out:
+        timeline = []
+        for event in out["timeline"]:
+            item = _serialize_row(dict(event))
+            payload = item.get("payload")
+            if payload is not None and not isinstance(payload, dict):
+                item["payload"] = json.loads(payload) if isinstance(payload, str) else payload
+            timeline.append(item)
+        out["timeline"] = timeline
     return out
 
 
@@ -92,8 +109,12 @@ class AdminScanResponse(BaseModel):
     tenant_name: str
     tenant_slug: str
     integration_id: str
+    provider: str | None = None
+    account_id: str | None = None
     status: str
     trace_id: str
+    error: dict | None = None
+    collection_status: str | None = None
     started_at: str | None
     completed_at: str | None
     created_at: str
@@ -105,6 +126,7 @@ class AdminOverviewResponse(BaseModel):
     failed_scan_count: int
     active_scan_count: int
     collect_queue_depth: int
+    collect_azure_queue_depth: int
     events_queue_depth: int
     policy_queue_depth: int
     api_status: str
@@ -115,11 +137,29 @@ class AdminIntegrationResponse(BaseModel):
     tenant_id: str
     provider: str
     account_id: str
-    role_arn: str
+    role_arn: str | None = None
+    azure_tenant_id: str | None = None
+    azure_client_id: str | None = None
     regions: list[str]
     status: str
     created_at: str
     updated_at: str
+
+
+class AdminScanTimelineEvent(BaseModel):
+    event_type: str
+    created_at: str
+    payload: dict | None = None
+
+
+class AdminScanDetailResponse(AdminScanResponse):
+    collection_error: dict | None = None
+    resource_count: int | None = None
+    manifest_s3_uri: str | None = None
+    role_arn: str | None = None
+    azure_tenant_id: str | None = None
+    azure_client_id: str | None = None
+    timeline: list[AdminScanTimelineEvent] = Field(default_factory=list)
 
 
 class AdminScanCreate(BaseModel):
@@ -158,6 +198,7 @@ async def admin_overview(
     for st in ("queued", "collecting", "ingesting", "evaluating"):
         active += await repo.count_scans_by_status(st)
     collect_depth = int(await redis_client.llen(settings.collect_queue_key))
+    collect_azure_depth = int(await redis_client.llen(settings.collect_azure_queue_key))
     events_depth = int(await redis_client.llen(settings.platform_events_key))
     policy_depth = int(await redis_client.llen(settings.policy_queue_key))
     try:
@@ -171,6 +212,7 @@ async def admin_overview(
         failed_scan_count=failed_scan_count,
         active_scan_count=active,
         collect_queue_depth=collect_depth,
+        collect_azure_queue_depth=collect_azure_depth,
         events_queue_depth=events_depth,
         policy_queue_depth=policy_depth,
         api_status=api_status,
@@ -313,7 +355,31 @@ async def list_admin_scans(
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> list[AdminScanResponse]:
     rows = await repo.list_scans(status=status_filter, limit=limit)
-    return [AdminScanResponse(**_serialize_row(r)) for r in rows]
+    return [AdminScanResponse(**_serialize_scan_row(r)) for r in rows]
+
+
+@router.get(
+    "/tenants/{tenant_id}/scans/{scan_id}",
+    response_model=AdminScanDetailResponse,
+    summary="Scan engineering diagnostics (admin)",
+    description=(
+        "Full scan detail for ops triage: scan/collection errors, resource counts, "
+        "manifest URI, integration metadata, and raw collection event timeline."
+    ),
+    responses={404: {"description": "Tenant or scan not found"}},
+)
+async def get_tenant_scan_detail(
+    tenant_id: UUID,
+    scan_id: UUID,
+    _principal: PlatformPrincipal = Depends(require_super_admin),
+    repo: AdminRepository = Depends(get_admin_repo),
+) -> AdminScanDetailResponse:
+    if not await repo.get_tenant(tenant_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+    row = await repo.get_scan_detail(tenant_id, scan_id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scan not found")
+    return AdminScanDetailResponse(**_serialize_scan_row(row))
 
 
 @router.get(
@@ -349,7 +415,7 @@ async def list_tenant_scans(
     if not await repo.get_tenant(tenant_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
     rows = await repo.list_scans_for_tenant(tenant_id, limit=limit)
-    return [AdminScanResponse(**_serialize_row(r)) for r in rows]
+    return [AdminScanResponse(**_serialize_scan_row(r)) for r in rows]
 
 
 @router.post(
