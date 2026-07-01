@@ -5,6 +5,8 @@
 **Time:** ~15–20 minutes  
 **App:** [https://app.drantiq.ai](https://app.drantiq.ai)
 
+**Public docs:** [https://drantiq.ai/docs/azure-onboarding](https://drantiq.ai/docs/azure-onboarding)
+
 ---
 
 ## What you are setting up

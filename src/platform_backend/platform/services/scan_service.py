@@ -218,6 +218,7 @@ class ScanService:
         base = ScanService._public_scan(row)
         base["account_id"] = row["account_id"]
         base["collection_status"] = row["collection_status"]
+        base["provider"] = row.get("provider")
         if row.get("error"):
             err = row["error"]
             base["error"] = err if isinstance(err, dict) else json.loads(err)

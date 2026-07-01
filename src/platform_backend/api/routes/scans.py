@@ -39,6 +39,7 @@ class ScanResponse(BaseModel):
 class ScanDetailResponse(ScanResponse):
     account_id: str | None = None
     collection_status: str | None = None
+    provider: str | None = None
     error: dict | None = None
 
 

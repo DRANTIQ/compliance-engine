@@ -198,10 +198,13 @@ class ScanRepository:
             """
             SELECT s.id, s.tenant_id, s.integration_id, s.status, s.trace_id, s.error,
                    s.started_at, s.completed_at, s.created_at, s.updated_at,
-                   cr.account_id, cr.status AS collection_status
+                   cr.account_id, cr.status AS collection_status,
+                   i.provider
             FROM platform.scans s
             JOIN platform.collection_runs cr
               ON cr.scan_id = s.id AND cr.tenant_id = s.tenant_id
+            JOIN platform.integrations i
+              ON i.id = s.integration_id AND i.tenant_id = s.tenant_id
             WHERE s.tenant_id = $1 AND s.id = $2
             """,
             tenant_id,
