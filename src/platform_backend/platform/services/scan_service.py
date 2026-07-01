@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -11,7 +12,7 @@ from platform_backend.config.settings import Settings, get_settings
 from platform_backend.db.pool import DatabasePool
 from platform_backend.platform.models.scan import ScanStatus, assert_transition
 from platform_backend.platform.repositories.integrations import IntegrationRepository, ScanRepository
-from platform_backend.security.external_id import decrypt_external_id
+from platform_backend.security.external_id import decrypt_credential, decrypt_external_id
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ class ScanService:
         assert queued is not None
 
         job = self._build_collection_job(tenant_id, integration, scan)
-        await self._redis.lpush(self._settings.collect_queue_key, json.dumps(job))
+        queue_key = self._settings.collect_queue_for_provider(integration["provider"])
+        await self._redis.lpush(queue_key, json.dumps(job))
 
         logger.info(
             "scan queued",
@@ -66,6 +68,17 @@ class ScanService:
         integration: dict[str, Any],
         scan: dict[str, Any],
     ) -> dict[str, Any]:
+        provider = integration.get("provider", "aws")
+        if provider == "azure":
+            return self._build_azure_collection_job(tenant_id, integration, scan)
+        return self._build_aws_collection_job(tenant_id, integration, scan)
+
+    def _build_aws_collection_job(
+        self,
+        tenant_id: UUID,
+        integration: dict[str, Any],
+        scan: dict[str, Any],
+    ) -> dict[str, Any]:
         regions = integration["regions"]
         if isinstance(regions, str):
             regions = json.loads(regions)
@@ -78,6 +91,7 @@ class ScanService:
         )
 
         return {
+            "provider": "aws",
             "job_id": str(uuid4()),
             "scan_id": str(scan_id),
             "tenant_id": str(tenant_id),
@@ -102,6 +116,50 @@ class ScanService:
                 "aws.guardduty",
                 "aws.ebs",
                 "aws.compute",
+            ],
+        }
+
+    def _build_azure_collection_job(
+        self,
+        tenant_id: UUID,
+        integration: dict[str, Any],
+        scan: dict[str, Any],
+    ) -> dict[str, Any]:
+        regions = integration["regions"]
+        if isinstance(regions, str):
+            regions = json.loads(regions)
+
+        client_secret = decrypt_credential(integration["azure_client_secret"])
+        scan_id = scan["id"]
+        subscription_id = integration["account_id"]
+        prefix = (
+            f"{self._settings.s3_prefix}/tenants/{tenant_id}/scans/{scan_id}"
+            f"/azure/{subscription_id}"
+        )
+
+        return {
+            "provider": "azure",
+            "job_id": str(uuid4()),
+            "scan_id": str(scan_id),
+            "tenant_id": str(tenant_id),
+            "integration_id": str(integration["id"]),
+            "collection_run_id": str(scan["collection_run_id"]),
+            "account_id": subscription_id,
+            "azure_tenant_id": integration["azure_tenant_id"],
+            "azure_client_id": integration["azure_client_id"],
+            "azure_client_secret": client_secret,
+            "regions": regions,
+            "s3_bucket": self._settings.s3_bucket,
+            "s3_prefix": prefix,
+            "trace_id": str(scan["trace_id"]),
+            "plugins": [
+                "azure.storage",
+                "azure.network",
+                "azure.compute",
+                "azure.identity",
+                "azure.keyvault",
+                "azure.defender",
+                "azure.database",
             ],
         }
 
@@ -184,7 +242,7 @@ class IntegrationService:
         if not regions:
             raise ValueError("regions must not be empty")
         encrypted = encrypt_external_id_safe(external_id)
-        row = await self._repo.create(
+        row = await self._repo.create_aws(
             tenant_id,
             account_id=account_id,
             role_arn=role_arn,
@@ -192,6 +250,73 @@ class IntegrationService:
             regions=regions,
         )
         return self._public_integration(row)
+
+    async def register_azure(
+        self,
+        tenant_id: UUID,
+        *,
+        subscription_id: str,
+        azure_tenant_id: str,
+        azure_client_id: str,
+        client_secret: str,
+        locations: list[str],
+    ) -> dict[str, Any]:
+        if not locations:
+            raise ValueError("locations must not be empty")
+        encrypted = encrypt_credential_safe(client_secret)
+        row = await self._repo.create_azure(
+            tenant_id,
+            subscription_id=subscription_id,
+            azure_tenant_id=azure_tenant_id,
+            azure_client_id=azure_client_id,
+            azure_client_secret_encrypted=encrypted,
+            locations=locations,
+        )
+        return self._public_integration(row)
+
+    async def get(self, tenant_id: UUID, integration_id: UUID) -> dict[str, Any] | None:
+        row = await self._repo.get(tenant_id, integration_id)
+        if not row:
+            return None
+        return self._public_integration(row)
+
+    async def verify_azure(
+        self,
+        tenant_id: UUID,
+        integration_id: UUID,
+    ) -> dict[str, Any]:
+        from platform_backend.platform.integrations.azure_verify import (
+            AzureVerificationError,
+            verify_subscription_access,
+        )
+
+        row = await self._repo.get(tenant_id, integration_id)
+        if not row:
+            raise LookupError("integration not found")
+        if row.get("provider") != "azure":
+            raise ValueError("verify is only supported for Azure integrations")
+
+        secret = decrypt_credential(row["azure_client_secret"])
+        try:
+            result = await asyncio.to_thread(
+                verify_subscription_access,
+                tenant_id=row["azure_tenant_id"],
+                client_id=row["azure_client_id"],
+                client_secret=secret,
+                subscription_id=row["account_id"],
+            )
+        except AzureVerificationError as exc:
+            return {
+                "valid": False,
+                "provider": "azure",
+                "subscription_id": row["account_id"],
+                "message": str(exc),
+            }
+        return {
+            "valid": True,
+            "provider": "azure",
+            **result,
+        }
 
     async def list(self, tenant_id: UUID) -> list[dict[str, Any]]:
         rows = await self._repo.list(tenant_id)
@@ -202,20 +327,34 @@ class IntegrationService:
         regions = row["regions"]
         if isinstance(regions, str):
             regions = json.loads(regions)
-        return {
+        out: dict[str, Any] = {
             "id": str(row["id"]),
             "tenant_id": str(row["tenant_id"]),
             "provider": row["provider"],
             "account_id": row["account_id"],
-            "role_arn": row["role_arn"],
             "regions": regions,
             "status": row["status"],
             "created_at": row["created_at"].isoformat(),
             "updated_at": row["updated_at"].isoformat(),
         }
+        if row.get("provider", "aws") == "aws":
+            out["role_arn"] = row.get("role_arn")
+            out["azure_tenant_id"] = None
+            out["azure_client_id"] = None
+        else:
+            out["role_arn"] = None
+            out["azure_tenant_id"] = row.get("azure_tenant_id")
+            out["azure_client_id"] = row.get("azure_client_id")
+        return out
 
 
 def encrypt_external_id_safe(plaintext: str) -> str:
     from platform_backend.security.external_id import encrypt_external_id
 
     return encrypt_external_id(plaintext)
+
+
+def encrypt_credential_safe(plaintext: str) -> str:
+    from platform_backend.security.external_id import encrypt_credential
+
+    return encrypt_credential(plaintext)

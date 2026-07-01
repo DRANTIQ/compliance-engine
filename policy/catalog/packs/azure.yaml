@@ -1,0 +1,60 @@
+version: 1.0.0
+packs:
+- pack_id: pack_azure_storage
+  display_title: Azure storage
+  description: Storage accounts — HTTPS, TLS, and public access
+  policy_ids:
+  - AZURE_STG_001
+  - AZURE_STG_002
+  - AZURE_STG_003
+- pack_id: pack_azure_network
+  display_title: Azure network
+  description: Network security groups and exposure
+  policy_ids:
+  - AZURE_NET_001
+  - AZURE_NET_002
+- pack_id: pack_azure_keyvault
+  display_title: Azure Key Vault
+  description: Key Vault soft delete and purge protection
+  policy_ids:
+  - AZURE_KV_001
+  - AZURE_KV_002
+- pack_id: pack_azure_defender
+  display_title: Microsoft Defender
+  description: Defender for Cloud standard tier
+  policy_ids:
+  - AZURE_DEF_001
+- pack_id: pack_azure_identity
+  display_title: Azure identity
+  description: Subscription RBAC and privileged access
+  policy_ids:
+  - AZURE_ID_001
+- pack_id: pack_azure_data
+  display_title: Azure data services
+  description: SQL and PostgreSQL network and TLS controls
+  policy_ids:
+  - AZURE_DB_001
+  - AZURE_DB_002
+- pack_id: pack_azure_compute
+  display_title: Azure compute
+  description: Virtual machine exposure and disk encryption
+  policy_ids:
+  - AZURE_CMP_001
+  - AZURE_CMP_002
+- pack_id: pack_azure_core
+  display_title: Azure core security
+  description: All Drantiq Azure security controls (default bundle)
+  policy_ids:
+  - AZURE_CMP_001
+  - AZURE_CMP_002
+  - AZURE_DB_001
+  - AZURE_DB_002
+  - AZURE_DEF_001
+  - AZURE_ID_001
+  - AZURE_KV_001
+  - AZURE_KV_002
+  - AZURE_NET_001
+  - AZURE_NET_002
+  - AZURE_STG_001
+  - AZURE_STG_002
+  - AZURE_STG_003

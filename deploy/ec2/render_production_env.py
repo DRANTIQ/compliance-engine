@@ -31,6 +31,7 @@ DEFAULTS: dict[str, str] = {
     "S3_PREFIX": "platform-v2",
     "USE_LOCAL_STORAGE": "false",
     "COLLECT_QUEUE_KEY": "platform:collect.aws",
+    "COLLECT_AZURE_QUEUE_KEY": "platform:collect.azure",
     "PLATFORM_EVENTS_KEY": "platform:events",
     "POLICY_QUEUE_KEY": "platform:policy.evaluate",
     "API_HOST": "0.0.0.0",

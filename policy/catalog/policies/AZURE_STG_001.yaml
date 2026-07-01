@@ -1,0 +1,44 @@
+policy_id: AZURE_STG_001
+version: 1.0.0
+title: Storage account must require secure transfer (HTTPS)
+provider: azure
+resource_type: storage.bucket
+severity: high
+description: Storage account must require secure transfer (HTTPS)
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.enable_https_traffic_only
+      operator: missing
+    - type: field_check
+      path: properties.enable_https_traffic_only
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.enable_https_traffic_only
+remediation:
+  headline: Storage account allows insecure HTTP
+  risk_summary: Storage account must require secure transfer (HTTPS)
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Storage account must require secure transfer (HTTPS)'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-8
+  - NIST SC-13
+  - SOC2 CC6.1
+  - SOC2 CC6.6
+  azure_cli: az storage account update --name {resource_name} --resource-group {resource_group}
+    --https-only true
+  azure_portal_steps:
+  - Open the storage account in Azure Portal
+  - Configuration → set Secure transfer required to Enabled
+  - Save
+display_title: Storage account allows insecure HTTP
+pack_id: pack_azure_storage
+provider_type: azure_storage_account

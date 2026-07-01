@@ -1,0 +1,41 @@
+policy_id: AZURE_KV_001
+version: 1.0.0
+title: Key Vault must have soft delete enabled
+provider: azure
+resource_type: security.key
+severity: high
+description: Key Vault must have soft delete enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.enable_soft_delete
+      operator: missing
+    - type: field_check
+      path: properties.enable_soft_delete
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.enable_soft_delete
+remediation:
+  headline: Key Vault soft delete disabled
+  risk_summary: Key Vault must have soft delete enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Key Vault must have soft delete enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-12
+  - NIST CP-9
+  - SOC2 CC6.7
+  azure_cli: az keyvault update --name {resource_name} --enable-soft-delete true
+  azure_portal_steps:
+  - Open Key Vault → Properties
+  - Enable Soft delete
+display_title: Key Vault soft delete disabled
+pack_id: pack_azure_keyvault
+provider_type: azure_key_vault

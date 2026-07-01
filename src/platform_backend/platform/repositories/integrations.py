@@ -13,7 +13,7 @@ class IntegrationRepository:
     def __init__(self, db: DatabasePool) -> None:
         self._db = db
 
-    async def create(
+    async def create_aws(
         self,
         tenant_id: UUID,
         *,
@@ -26,10 +26,10 @@ class IntegrationRepository:
             tenant_id,
             """
             INSERT INTO platform.integrations
-              (tenant_id, account_id, role_arn, external_id, regions)
-            VALUES ($1, $2, $3, $4, $5::jsonb)
+              (tenant_id, provider, account_id, role_arn, external_id, regions)
+            VALUES ($1, 'aws', $2, $3, $4, $5::jsonb)
             RETURNING id, tenant_id, provider, account_id, role_arn, regions, status,
-                      created_at, updated_at
+                      azure_tenant_id, azure_client_id, created_at, updated_at
             """,
             tenant_id,
             account_id,
@@ -40,12 +40,59 @@ class IntegrationRepository:
         assert row is not None
         return dict(row)
 
+    async def create_azure(
+        self,
+        tenant_id: UUID,
+        *,
+        subscription_id: str,
+        azure_tenant_id: str,
+        azure_client_id: str,
+        azure_client_secret_encrypted: str,
+        locations: list[str],
+    ) -> dict[str, Any]:
+        row = await self._db.fetchrow(
+            tenant_id,
+            """
+            INSERT INTO platform.integrations
+              (tenant_id, provider, account_id, regions,
+               azure_tenant_id, azure_client_id, azure_client_secret)
+            VALUES ($1, 'azure', $2, $3::jsonb, $4, $5, $6)
+            RETURNING id, tenant_id, provider, account_id, role_arn, regions, status,
+                      azure_tenant_id, azure_client_id, created_at, updated_at
+            """,
+            tenant_id,
+            subscription_id,
+            json.dumps(locations),
+            azure_tenant_id,
+            azure_client_id,
+            azure_client_secret_encrypted,
+        )
+        assert row is not None
+        return dict(row)
+
+    async def create(
+        self,
+        tenant_id: UUID,
+        *,
+        account_id: str,
+        role_arn: str,
+        external_id_encrypted: str,
+        regions: list[str],
+    ) -> dict[str, Any]:
+        return await self.create_aws(
+            tenant_id,
+            account_id=account_id,
+            role_arn=role_arn,
+            external_id_encrypted=external_id_encrypted,
+            regions=regions,
+        )
+
     async def list(self, tenant_id: UUID) -> list[dict[str, Any]]:
         rows = await self._db.fetch(
             tenant_id,
             """
             SELECT id, tenant_id, provider, account_id, role_arn, regions, status,
-                   created_at, updated_at
+                   azure_tenant_id, azure_client_id, created_at, updated_at
             FROM platform.integrations
             WHERE tenant_id = $1
             ORDER BY created_at DESC
@@ -59,6 +106,7 @@ class IntegrationRepository:
             tenant_id,
             """
             SELECT id, tenant_id, provider, account_id, role_arn, external_id, regions, status,
+                   azure_tenant_id, azure_client_id, azure_client_secret,
                    created_at, updated_at
             FROM platform.integrations
             WHERE tenant_id = $1 AND id = $2

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     s3_prefix: str = Field(default="platform-v2", alias="S3_PREFIX")
 
     collect_queue_key: str = Field(default="platform:collect.aws", alias="COLLECT_QUEUE_KEY")
+    collect_azure_queue_key: str = Field(
+        default="platform:collect.azure", alias="COLLECT_AZURE_QUEUE_KEY"
+    )
     platform_events_key: str = Field(default="platform:events", alias="PLATFORM_EVENTS_KEY")
     policy_queue_key: str = Field(default="platform:policy.evaluate", alias="POLICY_QUEUE_KEY")
     policy_catalog_path: str = Field(
@@ -78,6 +81,11 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    def collect_queue_for_provider(self, provider: str) -> str:
+        if provider == "azure":
+            return self.collect_azure_queue_key
+        return self.collect_queue_key
 
 
 @lru_cache

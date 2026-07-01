@@ -22,6 +22,8 @@ def _parse_remediation(raw: dict[str, Any] | None) -> PolicyRemediation | None:
         estimated_fix_minutes=raw.get("estimated_fix_minutes"),
         framework_mappings=tuple(str(m) for m in mappings),
         aws_cli=raw.get("aws_cli"),
+        azure_cli=raw.get("azure_cli"),
+        azure_portal_steps=tuple(str(s) for s in (raw.get("azure_portal_steps") or [])),
         terraform=raw.get("terraform"),
         cloudformation=raw.get("cloudformation"),
     )

@@ -1,0 +1,36 @@
+policy_id: AZURE_CMP_001
+version: 1.0.0
+title: Virtual machine must not expose a public IP address
+provider: azure
+resource_type: compute.instance
+severity: high
+description: Virtual machine must not expose a public IP address
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.has_public_ip
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.name
+- properties.has_public_ip
+remediation:
+  headline: Virtual machine has a public IP address
+  risk_summary: Virtual machine must not expose a public IP address
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Virtual machine must not expose a public IP address'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+  azure_cli: az vm show --name {resource_name} --resource-group {resource_group} --query
+    "networkProfile"
+  azure_portal_steps:
+  - Open the VM → Networking
+  - Remove public IP associations from the NIC
+display_title: Virtual machine has a public IP address
+pack_id: pack_azure_compute
+provider_type: azure_virtual_machine

@@ -1,0 +1,41 @@
+policy_id: AZURE_CMP_002
+version: 1.0.0
+title: Virtual machine OS disk must use platform or customer-managed encryption
+provider: azure
+resource_type: compute.instance
+severity: high
+description: Virtual machine OS disk must use platform or customer-managed encryption
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.os_disk_encrypted
+      operator: missing
+    - type: field_check
+      path: properties.os_disk_encrypted
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.os_disk_encrypted
+remediation:
+  headline: VM OS disk encryption not confirmed
+  risk_summary: Virtual machine OS disk must use platform or customer-managed encryption
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Virtual machine OS disk must use platform or customer-managed
+    encryption'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-28
+  - SOC2 CC6.7
+  azure_cli: az vm encryption show --name {resource_name} --resource-group {resource_group}
+  azure_portal_steps:
+  - Open the VM → Disks
+  - Confirm OS disk uses encryption at host or Azure Disk Encryption
+display_title: VM OS disk encryption not confirmed
+pack_id: pack_azure_compute
+provider_type: azure_virtual_machine

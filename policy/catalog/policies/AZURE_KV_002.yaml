@@ -1,0 +1,41 @@
+policy_id: AZURE_KV_002
+version: 1.0.0
+title: Key Vault must have purge protection enabled
+provider: azure
+resource_type: security.key
+severity: high
+description: Key Vault must have purge protection enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.enable_purge_protection
+      operator: missing
+    - type: field_check
+      path: properties.enable_purge_protection
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.enable_purge_protection
+remediation:
+  headline: Key Vault purge protection disabled
+  risk_summary: Key Vault must have purge protection enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Key Vault must have purge protection enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-12
+  - NIST CP-9
+  - SOC2 CC6.7
+  azure_cli: az keyvault update --name {resource_name} --enable-purge-protection true
+  azure_portal_steps:
+  - Open Key Vault → Properties
+  - Enable Purge protection (irreversible once enabled)
+display_title: Key Vault purge protection disabled
+pack_id: pack_azure_keyvault
+provider_type: azure_key_vault

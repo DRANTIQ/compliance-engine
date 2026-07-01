@@ -1,0 +1,44 @@
+policy_id: AZURE_STG_003
+version: 1.0.0
+title: Storage account must disable anonymous blob public access
+provider: azure
+resource_type: storage.bucket
+severity: critical
+description: Storage account must disable anonymous blob public access
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.allow_blob_public_access
+      operator: missing
+    - type: field_check
+      path: properties.allow_blob_public_access
+      operator: eq
+      expected: true
+evidence_fields:
+- properties.name
+- properties.allow_blob_public_access
+remediation:
+  headline: Storage account allows public blob access
+  risk_summary: Storage account must disable anonymous blob public access
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Storage account must disable anonymous blob public
+    access'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-3
+  - NIST SC-7
+  - SOC2 CC6.6
+  azure_cli: az storage account update --name {resource_name} --resource-group {resource_group}
+    --allow-blob-public-access false
+  azure_portal_steps:
+  - Open the storage account → Configuration
+  - Set Allow blob public access to Disabled
+  - Save
+display_title: Storage account allows public blob access
+pack_id: pack_azure_storage
+provider_type: azure_storage_account

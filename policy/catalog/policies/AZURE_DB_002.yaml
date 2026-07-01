@@ -1,0 +1,42 @@
+policy_id: AZURE_DB_002
+version: 1.0.0
+title: Azure SQL server must enforce minimum TLS 1.2
+provider: azure
+resource_type: database.instance
+severity: high
+description: Azure SQL server must enforce minimum TLS 1.2
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.tls_enforced
+      operator: missing
+    - type: field_check
+      path: properties.tls_enforced
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.minimal_tls_version
+remediation:
+  headline: SQL server TLS not enforced
+  risk_summary: Azure SQL server must enforce minimum TLS 1.2
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Azure SQL server must enforce minimum TLS 1.2'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-8
+  - NIST SC-13
+  - SOC2 CC6.1
+  azure_cli: az sql server update --name {resource_name} --resource-group {resource_group}
+    --minimal-tls-version 1.2
+  azure_portal_steps:
+  - Open SQL server → Security → Networking / TLS settings
+  - Set Minimum TLS version to 1.2
+display_title: SQL server TLS not enforced
+pack_id: pack_azure_data
+provider_type: azure_sql_server

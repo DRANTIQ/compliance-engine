@@ -1,0 +1,37 @@
+policy_id: AZURE_DB_001
+version: 1.0.0
+title: Database server must not allow public network access
+provider: azure
+resource_type: database.instance
+severity: critical
+description: Database server must not allow public network access
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.publicly_accessible
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.name
+- properties.public_network_access
+remediation:
+  headline: Database server publicly accessible
+  risk_summary: Database server must not allow public network access
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Database server must not allow public network
+    access'
+  estimated_fix_minutes: 10
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+  azure_cli: az sql server update --name {resource_name} --resource-group {resource_group}
+    --public-network-access Disabled
+  azure_portal_steps:
+  - Open the SQL or PostgreSQL server → Networking
+  - Set Public network access to Disabled
+  - Save
+display_title: Database server publicly accessible
+pack_id: pack_azure_data

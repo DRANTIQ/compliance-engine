@@ -27,3 +27,12 @@ def decrypt_external_id(ciphertext: str) -> str:
         return Fernet(key).decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
         raise ValueError("invalid external_id ciphertext") from exc
+
+
+def encrypt_credential(plaintext: str) -> str:
+    """Encrypt integration secrets (Azure client secret, etc.) — same key as external_id."""
+    return encrypt_external_id(plaintext)
+
+
+def decrypt_credential(ciphertext: str) -> str:
+    return decrypt_external_id(ciphertext)

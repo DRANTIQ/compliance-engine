@@ -18,6 +18,10 @@ def _parse_collected_at(value: str | None) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _cloud_provider(provider_type: str) -> str:
+    return "azure" if provider_type.startswith("azure_") else "aws"
+
+
 def _append_resource(
     resources: list[dict[str, Any]],
     *,
@@ -32,6 +36,7 @@ def _append_resource(
     tags: dict[str, str],
     region: str | None,
     collected_at: datetime,
+    provider: str | None = None,
 ) -> None:
     resources.append(
         {
@@ -39,7 +44,7 @@ def _append_resource(
             "scan_id": scan_id,
             "resource_id": resource_id,
             "resource_type": resource_type,
-            "provider": "aws",
+            "provider": provider or _cloud_provider(provider_type),
             "provider_type": provider_type,
             "integration_id": integration_id,
             "account_id": account_id,
@@ -416,6 +421,144 @@ def normalize_bronze(
                 "allows_unrestricted_admin_ports": item.get(
                     "AllowsUnrestrictedAdminPorts", False
                 ),
+            }
+            tags = {}
+        elif provider_type == "azure_storage_account":
+            resource_id = item["id"]
+            region = item.get("location")
+            min_tls = item.get("minimum_tls_version") or ""
+            properties = {
+                "name": item.get("name"),
+                "subscription_id": item.get("subscription_id", account_id),
+                "enable_https_traffic_only": item.get("enable_https_traffic_only", False),
+                "supports_https_traffic_only": item.get(
+                    "supports_https_traffic_only",
+                    item.get("enable_https_traffic_only", False),
+                ),
+                "minimum_tls_version": min_tls,
+                "min_tls_1_2": "1.2" in str(min_tls) or "TLS1_2" in str(min_tls).upper(),
+                "allow_blob_public_access": item.get("allow_blob_public_access"),
+                "public_network_access": item.get("public_network_access"),
+            }
+            tags = {}
+        elif provider_type == "azure_network_security_group":
+            resource_id = item["id"]
+            region = item.get("location")
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "allows_ssh_from_internet_ipv4": item.get("AllowsSshFromInternet", False),
+                "allows_rdp_from_internet_ipv4": item.get("AllowsRdpFromInternet", False),
+                "allows_unrestricted_admin_ports_ipv4": item.get(
+                    "AllowsUnrestrictedAdminPorts", False
+                ),
+            }
+            tags = {}
+        elif provider_type == "azure_virtual_network":
+            resource_id = item["id"]
+            region = item.get("location")
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "address_space": item.get("address_space", []),
+            }
+            tags = {}
+        elif provider_type == "azure_virtual_machine":
+            resource_id = item["id"]
+            region = item.get("location")
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "has_public_ip": item.get("has_public_ip", False),
+                "os_disk_encrypted": item.get("os_disk_encrypted"),
+                "provisioning_state": item.get("provisioning_state"),
+            }
+            tags = {}
+            vnet_id = item.get("vnet_id")
+            if vnet_id:
+                relationships.append(
+                    {
+                        "from_resource_id": resource_id,
+                        "to_resource_id": vnet_id,
+                        "relationship_type": "member_of",
+                        "properties": {},
+                    }
+                )
+            for nsg_id in item.get("network_security_group_ids") or []:
+                relationships.append(
+                    {
+                        "from_resource_id": resource_id,
+                        "to_resource_id": nsg_id,
+                        "relationship_type": "protected_by",
+                        "properties": {},
+                    }
+                )
+        elif provider_type == "azure_managed_disk":
+            resource_id = item["id"]
+            region = item.get("location")
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "encryption_type": item.get("encryption_type"),
+                "disk_size_gb": item.get("disk_size_gb"),
+            }
+            tags = {}
+        elif provider_type == "azure_subscription":
+            resource_id = f"/subscriptions/{account_id}"
+            properties = {
+                "subscription_id": item.get("subscription_id", account_id),
+                "owner_role_assignment_count": item.get("owner_role_assignment_count", 0),
+                "too_many_owners": item.get("too_many_owners", False),
+            }
+            tags = {}
+            region = None
+        elif provider_type == "azure_key_vault":
+            resource_id = item["id"]
+            region = item.get("location")
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "enable_soft_delete": item.get("enable_soft_delete", False),
+                "soft_delete_retention_in_days": item.get("soft_delete_retention_in_days"),
+                "enable_purge_protection": item.get("enable_purge_protection", False),
+                "public_network_access": item.get("public_network_access"),
+            }
+            tags = {}
+        elif provider_type == "azure_defender":
+            resource_id = f"/subscriptions/{account_id}/providers/Microsoft.Security/defender"
+            properties = {
+                "subscription_id": item.get("subscription_id", account_id),
+                "defender_standard_enabled": item.get("defender_standard_enabled", False),
+                "standard_plan_count": item.get("standard_plan_count", 0),
+                "pricing_plans": item.get("pricing_plans", []),
+            }
+            tags = {}
+            region = None
+        elif provider_type == "azure_sql_server":
+            resource_id = item["id"]
+            region = item.get("location")
+            public_access = str(item.get("public_network_access", "")).lower()
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "kind": item.get("kind", "sql_server"),
+                "public_network_access": item.get("public_network_access"),
+                "publicly_accessible": public_access in {"enabled", "true"},
+                "minimal_tls_version": item.get("minimal_tls_version"),
+                "tls_enforced": str(item.get("minimal_tls_version", "")) in {"1.2", "1.3"},
+            }
+            tags = {}
+        elif provider_type == "azure_postgresql_server":
+            resource_id = item["id"]
+            region = item.get("location")
+            public_access = str(item.get("public_network_access", "")).lower()
+            properties = {
+                "name": item.get("name"),
+                "resource_group": item.get("resource_group"),
+                "kind": item.get("kind", "postgresql_flexible"),
+                "public_network_access": item.get("public_network_access"),
+                "publicly_accessible": public_access in {"enabled", "true"},
+                "version": item.get("version"),
             }
             tags = {}
         else:

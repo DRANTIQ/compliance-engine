@@ -1,0 +1,396 @@
+# Azure core security pack — MVP automated checks (Phase 4)
+# Generated into policy/catalog/policies/AZURE_*.yaml by build_policy_catalog.py
+
+version: "1.0.0"
+pack_id: pack_azure_core
+policies:
+  - policy_id: AZURE_STG_001
+    control_ref: storage-https-required
+    domain: storage
+    severity: high
+    display_title: Storage account allows insecure HTTP
+    title: Storage account must require secure transfer (HTTPS)
+    resource_type: storage.bucket
+    provider_type: azure_storage_account
+    collector: storage
+    nist_mappings: [SC-8, SC-13]
+    soc2_mappings: [CC6.1, CC6.6]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.enable_https_traffic_only
+            operator: missing
+          - type: field_check
+            path: properties.enable_https_traffic_only
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.enable_https_traffic_only]
+    azure_cli: >-
+      az storage account update --name {resource_name} --resource-group {resource_group}
+      --https-only true
+    azure_portal_steps:
+      - Open the storage account in Azure Portal
+      - Configuration → set Secure transfer required to Enabled
+      - Save
+
+  - policy_id: AZURE_STG_002
+    control_ref: storage-tls-12
+    domain: storage
+    severity: high
+    display_title: Storage account minimum TLS below 1.2
+    title: Storage account must enforce minimum TLS 1.2
+    resource_type: storage.bucket
+    provider_type: azure_storage_account
+    collector: storage
+    nist_mappings: [SC-8, SC-13]
+    soc2_mappings: [CC6.1]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.min_tls_1_2
+            operator: missing
+          - type: field_check
+            path: properties.min_tls_1_2
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.minimum_tls_version]
+    azure_cli: >-
+      az storage account update --name {resource_name} --resource-group {resource_group}
+      --min-tls-version TLS1_2
+    azure_portal_steps:
+      - Open the storage account → Configuration
+      - Set Minimum TLS version to Version 1.2
+      - Save
+
+  - policy_id: AZURE_STG_003
+    control_ref: storage-no-public-blob
+    domain: storage
+    severity: critical
+    display_title: Storage account allows public blob access
+    title: Storage account must disable anonymous blob public access
+    resource_type: storage.bucket
+    provider_type: azure_storage_account
+    collector: storage
+    nist_mappings: [AC-3, SC-7]
+    soc2_mappings: [CC6.6]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.allow_blob_public_access
+            operator: missing
+          - type: field_check
+            path: properties.allow_blob_public_access
+            operator: eq
+            expected: true
+    evidence_fields: [properties.name, properties.allow_blob_public_access]
+    azure_cli: >-
+      az storage account update --name {resource_name} --resource-group {resource_group}
+      --allow-blob-public-access false
+    azure_portal_steps:
+      - Open the storage account → Configuration
+      - Set Allow blob public access to Disabled
+      - Save
+
+  - policy_id: AZURE_NET_001
+    control_ref: nsg-no-ssh-internet
+    domain: network
+    severity: high
+    display_title: NSG allows SSH from the internet
+    title: Network security group must not allow SSH (22) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: azure_network_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    soc2_mappings: [CC6.4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_ssh_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.name, properties.allows_ssh_from_internet_ipv4]
+    azure_cli: >-
+      az network nsg rule list --nsg-name {resource_name} --resource-group {resource_group}
+      --query "[?access=='Allow' && direction=='Inbound']"
+    azure_portal_steps:
+      - Open the NSG → Inbound security rules
+      - Remove or restrict rules allowing TCP 22 from Any / Internet
+
+  - policy_id: AZURE_NET_002
+    control_ref: nsg-no-rdp-internet
+    domain: network
+    severity: high
+    display_title: NSG allows RDP from the internet
+    title: Network security group must not allow RDP (3389) from 0.0.0.0/0
+    resource_type: network.security_group
+    provider_type: azure_network_security_group
+    collector: network
+    nist_mappings: [AC-4, SC-7]
+    soc2_mappings: [CC6.4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.allows_rdp_from_internet_ipv4
+        operator: eq
+        expected: true
+    evidence_fields: [properties.name, properties.allows_rdp_from_internet_ipv4]
+    azure_cli: >-
+      az network nsg rule list --nsg-name {resource_name} --resource-group {resource_group}
+      --query "[?access=='Allow' && direction=='Inbound']"
+    azure_portal_steps:
+      - Open the NSG → Inbound security rules
+      - Remove or restrict rules allowing TCP 3389 from Any / Internet
+
+  - policy_id: AZURE_KV_001
+    control_ref: keyvault-soft-delete
+    domain: security
+    severity: high
+    display_title: Key Vault soft delete disabled
+    title: Key Vault must have soft delete enabled
+    resource_type: security.key
+    provider_type: azure_key_vault
+    collector: keyvault
+    nist_mappings: [SC-12, CP-9]
+    soc2_mappings: [CC6.7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.enable_soft_delete
+            operator: missing
+          - type: field_check
+            path: properties.enable_soft_delete
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.enable_soft_delete]
+    azure_cli: >-
+      az keyvault update --name {resource_name} --enable-soft-delete true
+    azure_portal_steps:
+      - Open Key Vault → Properties
+      - Enable Soft delete
+
+  - policy_id: AZURE_KV_002
+    control_ref: keyvault-purge-protection
+    domain: security
+    severity: high
+    display_title: Key Vault purge protection disabled
+    title: Key Vault must have purge protection enabled
+    resource_type: security.key
+    provider_type: azure_key_vault
+    collector: keyvault
+    nist_mappings: [SC-12, CP-9]
+    soc2_mappings: [CC6.7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.enable_purge_protection
+            operator: missing
+          - type: field_check
+            path: properties.enable_purge_protection
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.enable_purge_protection]
+    azure_cli: >-
+      az keyvault update --name {resource_name} --enable-purge-protection true
+    azure_portal_steps:
+      - Open Key Vault → Properties
+      - Enable Purge protection (irreversible once enabled)
+
+  - policy_id: AZURE_DEF_001
+    control_ref: defender-standard
+    domain: security
+    severity: high
+    display_title: Microsoft Defender for Cloud standard tier not enabled
+    title: Microsoft Defender for Cloud standard pricing must be enabled
+    resource_type: governance.hub
+    provider_type: azure_defender
+    collector: defender
+    nist_mappings: [SI-4, RA-5]
+    soc2_mappings: [CC7.3]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.defender_standard_enabled
+            operator: missing
+          - type: field_check
+            path: properties.defender_standard_enabled
+            operator: eq
+            expected: false
+    evidence_fields: [properties.subscription_id, properties.defender_standard_enabled]
+    azure_cli: az security pricing create --name VirtualMachines --tier Standard
+    azure_portal_steps:
+      - Open Microsoft Defender for Cloud → Environment settings
+      - Select the subscription → Defender plans
+      - Set relevant plans to On (Standard)
+
+  - policy_id: AZURE_ID_001
+    control_ref: subscription-owner-limit
+    domain: identity
+    severity: high
+    display_title: Too many subscription owners assigned
+    title: Subscription must have at most three Owner role assignments
+    resource_type: identity.account
+    provider_type: azure_subscription
+    collector: identity
+    nist_mappings: [AC-2, AC-5]
+    soc2_mappings: [CC6.3]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.too_many_owners
+            operator: eq
+            expected: true
+          - type: field_check
+            path: properties.owner_role_assignment_count
+            operator: gt
+            expected: 3
+    evidence_fields: [properties.subscription_id, properties.owner_role_assignment_count]
+    azure_cli: az role assignment list --scope /subscriptions/{account_id} --role Owner
+    azure_portal_steps:
+      - Open Subscription → Access control (IAM)
+      - Review Owner assignments and remove excess privileged access
+
+  - policy_id: AZURE_DB_001
+    control_ref: database-no-public-access
+    domain: data
+    severity: critical
+    display_title: Database server publicly accessible
+    title: Database server must not allow public network access
+    resource_type: database.instance
+    provider_type: null
+    collector: database
+    nist_mappings: [AC-4, SC-7]
+    soc2_mappings: [CC6.4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.publicly_accessible
+        operator: eq
+        expected: true
+    evidence_fields: [properties.name, properties.public_network_access]
+    azure_cli: >-
+      az sql server update --name {resource_name} --resource-group {resource_group}
+      --public-network-access Disabled
+    azure_portal_steps:
+      - Open the SQL or PostgreSQL server → Networking
+      - Set Public network access to Disabled
+      - Save
+
+  - policy_id: AZURE_DB_002
+    control_ref: database-tls-enforced
+    domain: data
+    severity: high
+    display_title: SQL server TLS not enforced
+    title: Azure SQL server must enforce minimum TLS 1.2
+    resource_type: database.instance
+    provider_type: azure_sql_server
+    collector: database
+    nist_mappings: [SC-8, SC-13]
+    soc2_mappings: [CC6.1]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.tls_enforced
+            operator: missing
+          - type: field_check
+            path: properties.tls_enforced
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.minimal_tls_version]
+    azure_cli: >-
+      az sql server update --name {resource_name} --resource-group {resource_group}
+      --minimal-tls-version 1.2
+    azure_portal_steps:
+      - Open SQL server → Security → Networking / TLS settings
+      - Set Minimum TLS version to 1.2
+
+  - policy_id: AZURE_CMP_001
+    control_ref: vm-no-public-ip
+    domain: compute
+    severity: high
+    display_title: Virtual machine has a public IP address
+    title: Virtual machine must not expose a public IP address
+    resource_type: compute.instance
+    provider_type: azure_virtual_machine
+    collector: compute
+    nist_mappings: [AC-4, SC-7]
+    soc2_mappings: [CC6.4]
+    logic:
+      type: fail_when
+      condition:
+        type: field_check
+        path: properties.has_public_ip
+        operator: eq
+        expected: true
+    evidence_fields: [properties.name, properties.has_public_ip]
+    azure_cli: >-
+      az vm show --name {resource_name} --resource-group {resource_group}
+      --query "networkProfile"
+    azure_portal_steps:
+      - Open the VM → Networking
+      - Remove public IP associations from the NIC
+
+  - policy_id: AZURE_CMP_002
+    control_ref: vm-os-disk-encrypted
+    domain: compute
+    severity: high
+    display_title: VM OS disk encryption not confirmed
+    title: Virtual machine OS disk must use platform or customer-managed encryption
+    resource_type: compute.instance
+    provider_type: azure_virtual_machine
+    collector: compute
+    nist_mappings: [SC-28]
+    soc2_mappings: [CC6.7]
+    logic:
+      type: fail_when
+      condition:
+        type: compound
+        operator: or
+        conditions:
+          - type: field_check
+            path: properties.os_disk_encrypted
+            operator: missing
+          - type: field_check
+            path: properties.os_disk_encrypted
+            operator: eq
+            expected: false
+    evidence_fields: [properties.name, properties.os_disk_encrypted]
+    azure_cli: >-
+      az vm encryption show --name {resource_name} --resource-group {resource_group}
+    azure_portal_steps:
+      - Open the VM → Disks
+      - Confirm OS disk uses encryption at host or Azure Disk Encryption

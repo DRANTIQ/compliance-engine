@@ -40,6 +40,17 @@ RESOURCE_TYPE_LABEL: dict[str, str] = {
     "security.key": "KMS key",
 }
 
+AZURE_RESOURCE_TYPE_LABEL: dict[str, str] = {
+    "storage.bucket": "Storage account",
+    "network.security_group": "Network security group",
+    "network.vpc": "Virtual network",
+    "governance.hub": "Microsoft Defender for Cloud",
+    "identity.account": "Azure subscription",
+    "compute.instance": "Virtual machine",
+    "database.instance": "Database server",
+    "security.key": "Key Vault",
+}
+
 DATA_SENSITIVE_TYPES = frozenset({"storage.bucket", "storage.filesystem", "database.instance"})
 IDENTITY_RESOURCE_TYPES = frozenset({"identity.user", "identity.account", "identity.certificate"})
 LOGGING_POLICY_PREFIXES = ("AWS_LOG_", "AWS_S3_003", "AWS_S3_004", "AWS_CMP_003")
@@ -53,11 +64,26 @@ ENCRYPTION_POLICY_IDS = frozenset(
         "AWS_EC2_007",
         "AWS_EC2_008",
         "AWS_CMP_011",
+        "AZURE_STG_001",
+        "AZURE_STG_002",
+        "AZURE_CMP_002",
+        "AZURE_DB_002",
+        "AZURE_KV_001",
+        "AZURE_KV_002",
     }
 )
 
 
-def resource_type_label(resource_type: str) -> str:
+def _policy_provider(policy_id: str) -> str:
+    if policy_id.startswith("AZURE_"):
+        return "azure"
+    return "aws"
+
+
+def resource_type_label(resource_type: str, *, policy_id: str | None = None) -> str:
+    provider = _policy_provider(policy_id) if policy_id else "aws"
+    if provider == "azure":
+        return AZURE_RESOURCE_TYPE_LABEL.get(resource_type, resource_type.replace(".", " "))
     return RESOURCE_TYPE_LABEL.get(resource_type, resource_type.replace(".", " "))
 
 
@@ -105,6 +131,12 @@ def parse_framework_mappings(
 
 
 def _internet_exposed(finding: dict[str, Any]) -> bool:
+    policy_id = finding.get("policy_id", "")
+    if policy_id.startswith("AZURE_STG_003"):
+        evidence = finding.get("evidence") or {}
+        props = evidence.get("properties") if isinstance(evidence.get("properties"), dict) else evidence
+        if isinstance(props, dict) and props.get("allow_blob_public_access") is True:
+            return True
     if finding.get("resource_type") != "storage.bucket":
         return False
     evidence = finding.get("evidence") or {}
@@ -133,13 +165,17 @@ def _publicly_accessible(finding: dict[str, Any]) -> bool:
     if isinstance(props, dict) and props.get("public") is True:
         return True
     policy_id = finding.get("policy_id", "")
-    return policy_id.startswith(("AWS_EC2_011", "AWS_EC2_012", "AWS_EC2_013", "AWS_CMP_013", "AWS_CMP_014"))
+    return policy_id.startswith(
+        ("AWS_EC2_011", "AWS_EC2_012", "AWS_EC2_013", "AWS_CMP_013", "AWS_CMP_014",
+         "AZURE_NET_001", "AZURE_NET_002", "AZURE_CMP_001", "AZURE_DB_001")
+    )
 
 
 def _identity_exposure(finding: dict[str, Any]) -> bool:
     if finding.get("resource_type") in IDENTITY_RESOURCE_TYPES:
         return True
-    return finding.get("policy_id", "").startswith("AWS_IAM_")
+    policy_id = finding.get("policy_id", "")
+    return policy_id.startswith(("AWS_IAM_", "AZURE_ID_"))
 
 
 def _why_badges(finding: dict[str, Any], signals: dict[str, Any]) -> list[dict[str, str]]:
@@ -264,6 +300,8 @@ def customer_remediation(remediation: dict[str, Any]) -> dict[str, Any]:
         "estimated_fix_minutes": remediation.get("estimated_fix_minutes"),
         "aws_console_steps": [],
         "aws_cli": remediation.get("aws_cli"),
+        "azure_cli": remediation.get("azure_cli"),
+        "azure_portal_steps": remediation.get("azure_portal_steps") or [],
         "terraform": remediation.get("terraform"),
         "cloudformation": remediation.get("cloudformation"),
         "framework_mappings": customer_mappings,
@@ -288,7 +326,10 @@ def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool =
         "plain_language_title": display,
         "technical_title": technical,
         "affected_resource": affected_resource_name(finding),
-        "resource_type_label": resource_type_label(finding.get("resource_type", "")),
+        "resource_type_label": resource_type_label(
+            finding.get("resource_type", ""),
+            policy_id=finding.get("policy_id"),
+        ),
         "risk": rem.get("risk_summary") or finding.get("description"),
         "business_impact": rem.get("business_impact"),
         "frameworks": parse_framework_mappings(customer_mappings, customer_visible=True),

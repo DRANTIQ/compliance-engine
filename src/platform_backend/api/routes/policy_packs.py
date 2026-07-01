@@ -22,9 +22,14 @@ class PolicyPackSummary(BaseModel):
     check_count: int = Field(description="Number of security checks in this pack")
 
 
-def _packs_path(settings: Settings) -> Path:
+def _packs_paths(settings: Settings) -> list[Path]:
     catalog = resolve_catalog_path(settings)
-    return catalog.parent / "packs" / "aws.yaml"
+    packs_dir = catalog.parent / "packs"
+    paths = [packs_dir / "aws.yaml"]
+    azure_path = packs_dir / "azure.yaml"
+    if azure_path.is_file():
+        paths.append(azure_path)
+    return paths
 
 
 @router.get(
@@ -38,10 +43,12 @@ async def list_policy_packs(
     _principal: PlatformPrincipal = Depends(get_principal),
     settings: Settings = Depends(get_settings_dep),
 ) -> list[PolicyPackSummary]:
-    packs = load_policy_packs(_packs_path(settings))
+    packs: list[dict] = []
+    for path in _packs_paths(settings):
+        packs.extend(load_policy_packs(path))
     out: list[PolicyPackSummary] = []
     for pack in packs:
-        if pack.get("pack_id") == "pack_aws_core":
+        if pack.get("pack_id") in {"pack_aws_core", "pack_azure_core"}:
             continue
         policy_ids = pack.get("policy_ids") or []
         out.append(

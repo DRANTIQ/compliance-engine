@@ -1,0 +1,43 @@
+policy_id: AZURE_STG_002
+version: 1.0.0
+title: Storage account must enforce minimum TLS 1.2
+provider: azure
+resource_type: storage.bucket
+severity: high
+description: Storage account must enforce minimum TLS 1.2
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.min_tls_1_2
+      operator: missing
+    - type: field_check
+      path: properties.min_tls_1_2
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.name
+- properties.minimum_tls_version
+remediation:
+  headline: Storage account minimum TLS below 1.2
+  risk_summary: Storage account must enforce minimum TLS 1.2
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Storage account must enforce minimum TLS 1.2'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SC-8
+  - NIST SC-13
+  - SOC2 CC6.1
+  azure_cli: az storage account update --name {resource_name} --resource-group {resource_group}
+    --min-tls-version TLS1_2
+  azure_portal_steps:
+  - Open the storage account → Configuration
+  - Set Minimum TLS version to Version 1.2
+  - Save
+display_title: Storage account minimum TLS below 1.2
+pack_id: pack_azure_storage
+provider_type: azure_storage_account

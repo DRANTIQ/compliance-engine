@@ -13,6 +13,8 @@ class PolicyRemediation:
     estimated_fix_minutes: int | None = None
     framework_mappings: tuple[str, ...] = ()
     aws_cli: str | None = None
+    azure_cli: str | None = None
+    azure_portal_steps: tuple[str, ...] = ()
     terraform: str | None = None
     cloudformation: str | None = None
 
@@ -29,6 +31,8 @@ class PolicyRemediation:
             "estimated_fix_minutes": self.estimated_fix_minutes,
             "framework_mappings": list(self.framework_mappings),
             "aws_cli": self.aws_cli,
+            "azure_cli": self.azure_cli,
+            "azure_portal_steps": list(self.azure_portal_steps),
             "terraform": self.terraform,
             "cloudformation": self.cloudformation,
         }
@@ -59,6 +63,8 @@ class PolicyDefinition:
         return self.title
 
     def matches_asset(self, asset: dict[str, Any]) -> bool:
+        if asset.get("provider", "aws") != self.provider:
+            return False
         if asset.get("resource_type") != self.resource_type:
             return False
         if self.provider_type and asset.get("provider_type") != self.provider_type:

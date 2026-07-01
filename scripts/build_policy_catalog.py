@@ -828,6 +828,25 @@ ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
 P5_W1_MANIFEST = REPO_ROOT / "policy" / "catalog" / "p5_w1_compute.yaml"
 P5_W2_MANIFEST = REPO_ROOT / "policy" / "catalog" / "p5_w2_compute.yaml"
 P5_W3_MANIFEST = REPO_ROOT / "policy" / "catalog" / "p5_w3_data.yaml"
+AZURE_CORE_MANIFEST = REPO_ROOT / "policy" / "catalog" / "azure_core.yaml"
+NIST_AZURE_BASELINE_YAML = REPO_ROOT / "policy" / "catalog" / "mappings" / "nist_800_53_rev5_azure.yaml"
+SOC2_AZURE_BASELINE_YAML = REPO_ROOT / "policy" / "catalog" / "mappings" / "soc2_azure.yaml"
+
+AZURE_PACK_BY_POLICY_ID: dict[str, str] = {
+    "AZURE_STG_001": "pack_azure_storage",
+    "AZURE_STG_002": "pack_azure_storage",
+    "AZURE_STG_003": "pack_azure_storage",
+    "AZURE_NET_001": "pack_azure_network",
+    "AZURE_NET_002": "pack_azure_network",
+    "AZURE_KV_001": "pack_azure_keyvault",
+    "AZURE_KV_002": "pack_azure_keyvault",
+    "AZURE_DEF_001": "pack_azure_defender",
+    "AZURE_ID_001": "pack_azure_identity",
+    "AZURE_DB_001": "pack_azure_data",
+    "AZURE_DB_002": "pack_azure_data",
+    "AZURE_CMP_001": "pack_azure_compute",
+    "AZURE_CMP_002": "pack_azure_compute",
+}
 
 
 def load_wave_manifest(path: Path) -> list[dict]:
@@ -849,6 +868,329 @@ def load_p5_w2_policies() -> list[dict]:
 
 def load_p5_w3_policies() -> list[dict]:
     return load_wave_manifest(P5_W3_MANIFEST)
+
+
+def load_p5_w3_policies() -> list[dict]:
+    return load_wave_manifest(P5_W3_MANIFEST)
+
+
+def load_azure_core_policies() -> list[dict]:
+    return load_wave_manifest(AZURE_CORE_MANIFEST)
+
+
+def load_framework_baseline(path: Path) -> dict:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def write_azure_policy_yamls(policies: list[dict]) -> None:
+    minutes_by_severity = {"critical": 10, "high": 5, "medium": 3, "low": 2}
+    for policy in policies:
+        policy_id = policy["policy_id"]
+        display_title = policy["display_title"]
+        title = policy["title"]
+        severity = policy["severity"]
+        nist = policy.get("nist_mappings") or []
+        soc2 = policy.get("soc2_mappings") or []
+        framework_mappings = [f"NIST {control_id}" for control_id in nist]
+        framework_mappings.extend(f"SOC2 {control_id}" for control_id in soc2)
+        body: dict[str, object] = {
+            "policy_id": policy_id,
+            "version": DEFAULT_POLICY_VERSION,
+            "title": title,
+            "provider": "azure",
+            "resource_type": policy["resource_type"],
+            "severity": severity,
+            "description": title,
+            "logic": policy["logic"],
+            "evidence_fields": list(policy.get("evidence_fields") or []),
+            "remediation": {
+                "headline": display_title,
+                "risk_summary": title,
+                "business_impact": "This misconfiguration may increase attack surface or reduce threat detection coverage.",
+                "fix_summary": f"Remediate in Azure: {title}",
+                "estimated_fix_minutes": minutes_by_severity.get(severity, 3),
+                "framework_mappings": framework_mappings,
+            },
+            "display_title": display_title,
+            "pack_id": AZURE_PACK_BY_POLICY_ID.get(policy_id, "pack_azure_core"),
+        }
+        provider_type = policy.get("provider_type")
+        if provider_type:
+            body["provider_type"] = provider_type
+        remediation = body["remediation"]
+        assert isinstance(remediation, dict)
+        if policy.get("azure_cli"):
+            remediation["azure_cli"] = policy["azure_cli"]
+        portal_steps = policy.get("azure_portal_steps") or []
+        if portal_steps:
+            remediation["azure_portal_steps"] = list(portal_steps)
+        path = POLICIES_DIR / f"{policy_id}.yaml"
+        path.write_text(
+            yaml.dump(body, sort_keys=False, allow_unicode=True, default_flow_style=False),
+            encoding="utf-8",
+        )
+
+
+def write_azure_packs_yaml(policies: list[dict]) -> None:
+    policy_ids = sorted(p["policy_id"] for p in policies)
+    by_domain: dict[str, list[str]] = {}
+    for pid in policy_ids:
+        pack_id = AZURE_PACK_BY_POLICY_ID.get(pid, "pack_azure_core")
+        by_domain.setdefault(pack_id, []).append(pid)
+    packs: dict[str, dict[str, object]] = {
+        "pack_azure_storage": {
+            "display_title": "Azure storage",
+            "description": "Storage accounts — HTTPS, TLS, and public access",
+            "policy_ids": sorted(by_domain.get("pack_azure_storage", [])),
+        },
+        "pack_azure_network": {
+            "display_title": "Azure network",
+            "description": "Network security groups and exposure",
+            "policy_ids": sorted(by_domain.get("pack_azure_network", [])),
+        },
+        "pack_azure_keyvault": {
+            "display_title": "Azure Key Vault",
+            "description": "Key Vault soft delete and purge protection",
+            "policy_ids": sorted(by_domain.get("pack_azure_keyvault", [])),
+        },
+        "pack_azure_defender": {
+            "display_title": "Microsoft Defender",
+            "description": "Defender for Cloud standard tier",
+            "policy_ids": sorted(by_domain.get("pack_azure_defender", [])),
+        },
+        "pack_azure_identity": {
+            "display_title": "Azure identity",
+            "description": "Subscription RBAC and privileged access",
+            "policy_ids": sorted(by_domain.get("pack_azure_identity", [])),
+        },
+        "pack_azure_data": {
+            "display_title": "Azure data services",
+            "description": "SQL and PostgreSQL network and TLS controls",
+            "policy_ids": sorted(by_domain.get("pack_azure_data", [])),
+        },
+        "pack_azure_compute": {
+            "display_title": "Azure compute",
+            "description": "Virtual machine exposure and disk encryption",
+            "policy_ids": sorted(by_domain.get("pack_azure_compute", [])),
+        },
+        "pack_azure_core": {
+            "display_title": "Azure core security",
+            "description": "All Drantiq Azure security controls (default bundle)",
+            "policy_ids": policy_ids,
+        },
+    }
+    out = {
+        "version": "1.0.0",
+        "packs": [
+            {"pack_id": pid, **{k: v for k, v in body.items() if k != "policy_ids"}, "policy_ids": body["policy_ids"]}
+            for pid, body in packs.items()
+        ],
+    }
+    azure_packs_path = PACKS_DIR / "azure.yaml"
+    PACKS_DIR.mkdir(parents=True, exist_ok=True)
+    azure_packs_path.write_text(
+        yaml.dump(out, sort_keys=False, allow_unicode=True, default_flow_style=False),
+        encoding="utf-8",
+    )
+
+
+def write_azure_core_migration(policies: list[dict]) -> None:
+    nist_data = load_framework_baseline(NIST_AZURE_BASELINE_YAML)
+    soc2_data = load_framework_baseline(SOC2_AZURE_BASELINE_YAML)
+    drantiq_controls: list[str] = []
+    drantiq_mappings: list[str] = []
+
+    for policy in policies:
+        policy_id = policy["policy_id"]
+        ref = policy["control_ref"]
+        display = _sql_str(policy["display_title"])
+        title = _sql_str(policy["title"])
+        domain = _sql_str(policy["domain"])
+        severity = policy["severity"]
+        drantiq_controls.append(
+            f"  ('drantiq_security_assessment_v1', '{policy_id}', '{ref}', "
+            f"'{title}', '{display}', '{domain}', '{severity}', 'automated', true)"
+        )
+        drantiq_mappings.append(
+            f"  ('drantiq_security_assessment_v1', '{policy_id}', '{policy_id}')"
+        )
+
+    nist_framework_id = nist_data["framework_id"]
+    nist_control_rows: list[str] = []
+    nist_baseline_mappings: list[str] = []
+    nist_control_ids: list[str] = []
+    for control in nist_data["controls"]:
+        cid = control["control_id"]
+        nist_control_ids.append(cid)
+        display = _sql_str(control["display_title"])
+        title = _sql_str(control["title"])
+        domain = _sql_str(control["domain"])
+        severity = control["severity"]
+        assessment_type = control["assessment_type"]
+        nist_control_rows.append(
+            f"  ('{nist_framework_id}', '{cid}', '{cid}', "
+            f"'{title}', '{display}', '{domain}', '{severity}', "
+            f"'{assessment_type}', true)"
+        )
+        for policy_id in control.get("policy_ids") or []:
+            nist_baseline_mappings.append(
+                f"  ('{nist_framework_id}', '{cid}', '{policy_id}')"
+            )
+
+    soc2_framework_id = soc2_data["framework_id"]
+    soc2_version = soc2_data.get("version", "2017")
+    soc2_control_rows: list[str] = []
+    soc2_baseline_mappings: list[str] = []
+    soc2_control_ids: list[str] = []
+    for control in soc2_data["controls"]:
+        cid = control["control_id"]
+        soc2_control_ids.append(cid)
+        display = _sql_str(control["display_title"])
+        title = _sql_str(control["title"])
+        domain = _sql_str(control["domain"])
+        severity = control["severity"]
+        assessment_type = control["assessment_type"]
+        soc2_control_rows.append(
+            f"  ('{soc2_framework_id}', '{cid}', '{cid}', "
+            f"'{title}', '{display}', '{domain}', '{severity}', "
+            f"'{assessment_type}', true)"
+        )
+        for policy_id in control.get("policy_ids") or []:
+            soc2_baseline_mappings.append(
+                f"  ('{soc2_framework_id}', '{cid}', '{policy_id}')"
+            )
+
+    nist_id_list = ", ".join(f"'{cid}'" for cid in nist_control_ids)
+    soc2_id_list = ", ".join(f"'{cid}'" for cid in soc2_control_ids)
+
+    sql = f"""-- platform-db migration 028
+-- Azure core policy pack (Phase 4)
+-- Generated by compliance-engine/scripts/build_policy_catalog.py
+
+INSERT INTO compliance_v2.controls (
+  framework_id, control_id, control_ref, title, display_title, domain, severity, assessment_type, enabled
+)
+VALUES
+{",\n".join(drantiq_controls)}
+ON CONFLICT (framework_id, control_id) DO UPDATE
+  SET control_ref = EXCLUDED.control_ref,
+      title = EXCLUDED.title,
+      display_title = EXCLUDED.display_title,
+      domain = EXCLUDED.domain,
+      severity = EXCLUDED.severity,
+      assessment_type = EXCLUDED.assessment_type,
+      enabled = true;
+
+INSERT INTO compliance_v2.policy_mappings (framework_id, control_id, policy_id)
+VALUES
+{",\n".join(drantiq_mappings)}
+ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
+
+INSERT INTO compliance_v2.frameworks (
+  framework_id, title, provider, version_label, enabled, customer_visible, requires_license, display_title
+)
+VALUES (
+  '{nist_framework_id}',
+  'NIST SP 800-53 Rev. 5 (Azure)',
+  'azure',
+  'rev5',
+  true,
+  true,
+  false,
+  'NIST 800-53 (Azure)'
+)
+ON CONFLICT (framework_id) DO UPDATE
+  SET title = EXCLUDED.title,
+      display_title = EXCLUDED.display_title,
+      customer_visible = true,
+      requires_license = false,
+      enabled = true;
+
+INSERT INTO compliance_v2.framework_versions (framework_id, version_name, published_at)
+VALUES ('{nist_framework_id}', 'rev5', now())
+ON CONFLICT (framework_id, version_name) DO NOTHING;
+
+DELETE FROM compliance_v2.policy_mappings WHERE framework_id = '{nist_framework_id}';
+
+UPDATE compliance_v2.controls SET enabled = false WHERE framework_id = '{nist_framework_id}';
+
+INSERT INTO compliance_v2.controls (
+  framework_id, control_id, control_ref, title, display_title, domain, severity, assessment_type, enabled
+)
+VALUES
+{",\n".join(nist_control_rows)}
+ON CONFLICT (framework_id, control_id) DO UPDATE
+  SET control_ref = EXCLUDED.control_ref,
+      title = EXCLUDED.title,
+      display_title = EXCLUDED.display_title,
+      domain = EXCLUDED.domain,
+      severity = EXCLUDED.severity,
+      assessment_type = EXCLUDED.assessment_type,
+      enabled = true;
+
+UPDATE compliance_v2.controls
+SET enabled = false
+WHERE framework_id = '{nist_framework_id}'
+  AND control_id NOT IN ({nist_id_list});
+
+INSERT INTO compliance_v2.policy_mappings (framework_id, control_id, policy_id)
+VALUES
+{",\n".join(nist_baseline_mappings)}
+ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
+
+INSERT INTO compliance_v2.frameworks (
+  framework_id, title, provider, version_label, enabled, customer_visible, requires_license, display_title
+)
+VALUES (
+  '{soc2_framework_id}',
+  'SOC 2 Trust Services Criteria (Azure technical)',
+  'azure',
+  '{soc2_version}',
+  true,
+  true,
+  false,
+  'SOC 2 (Azure)'
+)
+ON CONFLICT (framework_id) DO UPDATE
+  SET title = EXCLUDED.title,
+      display_title = EXCLUDED.display_title,
+      customer_visible = true,
+      requires_license = false,
+      enabled = true;
+
+INSERT INTO compliance_v2.framework_versions (framework_id, version_name, published_at)
+VALUES ('{soc2_framework_id}', '{soc2_version}', now())
+ON CONFLICT (framework_id, version_name) DO NOTHING;
+
+DELETE FROM compliance_v2.policy_mappings WHERE framework_id = '{soc2_framework_id}';
+
+UPDATE compliance_v2.controls SET enabled = false WHERE framework_id = '{soc2_framework_id}';
+
+INSERT INTO compliance_v2.controls (
+  framework_id, control_id, control_ref, title, display_title, domain, severity, assessment_type, enabled
+)
+VALUES
+{",\n".join(soc2_control_rows)}
+ON CONFLICT (framework_id, control_id) DO UPDATE
+  SET control_ref = EXCLUDED.control_ref,
+      title = EXCLUDED.title,
+      display_title = EXCLUDED.display_title,
+      domain = EXCLUDED.domain,
+      severity = EXCLUDED.severity,
+      assessment_type = EXCLUDED.assessment_type,
+      enabled = true;
+
+UPDATE compliance_v2.controls
+SET enabled = false
+WHERE framework_id = '{soc2_framework_id}'
+  AND control_id NOT IN ({soc2_id_list});
+
+INSERT INTO compliance_v2.policy_mappings (framework_id, control_id, policy_id)
+VALUES
+{",\n".join(soc2_baseline_mappings)}
+ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
+"""
+    write_migration_sql("028_pack_azure_core.sql", sql)
 
 
 def write_wave_policy_yamls(policies: list[dict]) -> None:
@@ -1017,9 +1359,15 @@ def main() -> None:
     write_migration(controls, cis_migration)
     if PLATFORM_DB_MIGRATIONS_DIR.is_dir():
         write_migration(controls, PLATFORM_DB_MIGRATIONS_DIR / "010_cis_policy_mappings.sql")
+    azure_policies = load_azure_core_policies()
+    assert len(azure_policies) == 13, f"expected 13 Azure core policies, got {len(azure_policies)}"
+    write_azure_policy_yamls(azure_policies)
+    write_azure_packs_yaml(azure_policies)
+    write_azure_core_migration(azure_policies)
     print(
         "Wrote policy YAMLs, packs/aws.yaml, 017/022/026/023/024/025 migrations, "
-        f"aws_cspm_v1.yaml (+{len(expansion_policies)} expansion), cis_aws_v6.yaml, soc2_aws.yaml"
+        f"aws_cspm_v1.yaml (+{len(expansion_policies)} expansion), cis_aws_v6.yaml, soc2_aws.yaml, "
+        f"packs/azure.yaml (+{len(azure_policies)} Azure policies), 028_pack_azure_core.sql"
     )
 
 

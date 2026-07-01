@@ -1,0 +1,43 @@
+policy_id: AZURE_DEF_001
+version: 1.0.0
+title: Microsoft Defender for Cloud standard pricing must be enabled
+provider: azure
+resource_type: governance.hub
+severity: high
+description: Microsoft Defender for Cloud standard pricing must be enabled
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.defender_standard_enabled
+      operator: missing
+    - type: field_check
+      path: properties.defender_standard_enabled
+      operator: eq
+      expected: false
+evidence_fields:
+- properties.subscription_id
+- properties.defender_standard_enabled
+remediation:
+  headline: Microsoft Defender for Cloud standard tier not enabled
+  risk_summary: Microsoft Defender for Cloud standard pricing must be enabled
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Microsoft Defender for Cloud standard pricing
+    must be enabled'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST SI-4
+  - NIST RA-5
+  - SOC2 CC7.3
+  azure_cli: az security pricing create --name VirtualMachines --tier Standard
+  azure_portal_steps:
+  - Open Microsoft Defender for Cloud → Environment settings
+  - Select the subscription → Defender plans
+  - Set relevant plans to On (Standard)
+display_title: Microsoft Defender for Cloud standard tier not enabled
+pack_id: pack_azure_defender
+provider_type: azure_defender

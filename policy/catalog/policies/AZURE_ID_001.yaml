@@ -1,0 +1,43 @@
+policy_id: AZURE_ID_001
+version: 1.0.0
+title: Subscription must have at most three Owner role assignments
+provider: azure
+resource_type: identity.account
+severity: high
+description: Subscription must have at most three Owner role assignments
+logic:
+  type: fail_when
+  condition:
+    type: compound
+    operator: or
+    conditions:
+    - type: field_check
+      path: properties.too_many_owners
+      operator: eq
+      expected: true
+    - type: field_check
+      path: properties.owner_role_assignment_count
+      operator: gt
+      expected: 3
+evidence_fields:
+- properties.subscription_id
+- properties.owner_role_assignment_count
+remediation:
+  headline: Too many subscription owners assigned
+  risk_summary: Subscription must have at most three Owner role assignments
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Subscription must have at most three Owner role
+    assignments'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-2
+  - NIST AC-5
+  - SOC2 CC6.3
+  azure_cli: az role assignment list --scope /subscriptions/{account_id} --role Owner
+  azure_portal_steps:
+  - Open Subscription → Access control (IAM)
+  - Review Owner assignments and remove excess privileged access
+display_title: Too many subscription owners assigned
+pack_id: pack_azure_identity
+provider_type: azure_subscription

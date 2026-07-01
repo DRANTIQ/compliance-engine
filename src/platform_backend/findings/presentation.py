@@ -27,12 +27,17 @@ def _resource_context(finding: dict[str, Any]) -> dict[str, str]:
     if region == "global":
         region = "us-east-1"
 
+    subscription_id = props.get("subscription_id") or ""
+    resource_group = props.get("resource_group") or "RESOURCE_GROUP"
+
     return {
         "resource_name": str(name),
         "bucket_name": str(props.get("bucket_name") or props.get("name") or name),
         "trail_name": str(props.get("trail_name") or props.get("name") or name),
         "region": str(region),
-        "account_id": str(props.get("account_id") or ""),
+        "account_id": str(props.get("account_id") or subscription_id or ""),
+        "subscription_id": str(subscription_id),
+        "resource_group": str(resource_group),
     }
 
 
@@ -60,6 +65,8 @@ def remediation_for_finding(
             "estimated_fix_minutes": minutes,
             "framework_mappings": [],
             "aws_cli": None,
+            "azure_cli": None,
+            "azure_portal_steps": [],
             "terraform": None,
             "cloudformation": None,
         }
@@ -74,6 +81,8 @@ def remediation_for_finding(
         "estimated_fix_minutes": rem.estimated_fix_minutes,
         "framework_mappings": list(rem.framework_mappings),
         "aws_cli": render_template(rem.aws_cli, ctx),
+        "azure_cli": render_template(rem.azure_cli, ctx),
+        "azure_portal_steps": list(rem.azure_portal_steps),
         "terraform": render_template(rem.terraform, ctx),
         "cloudformation": render_template(rem.cloudformation, ctx),
     }

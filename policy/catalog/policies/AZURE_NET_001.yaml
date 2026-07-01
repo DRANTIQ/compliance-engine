@@ -1,0 +1,37 @@
+policy_id: AZURE_NET_001
+version: 1.0.0
+title: Network security group must not allow SSH (22) from 0.0.0.0/0
+provider: azure
+resource_type: network.security_group
+severity: high
+description: Network security group must not allow SSH (22) from 0.0.0.0/0
+logic:
+  type: fail_when
+  condition:
+    type: field_check
+    path: properties.allows_ssh_from_internet_ipv4
+    operator: eq
+    expected: true
+evidence_fields:
+- properties.name
+- properties.allows_ssh_from_internet_ipv4
+remediation:
+  headline: NSG allows SSH from the internet
+  risk_summary: Network security group must not allow SSH (22) from 0.0.0.0/0
+  business_impact: This misconfiguration may increase attack surface or reduce threat
+    detection coverage.
+  fix_summary: 'Remediate in Azure: Network security group must not allow SSH (22)
+    from 0.0.0.0/0'
+  estimated_fix_minutes: 5
+  framework_mappings:
+  - NIST AC-4
+  - NIST SC-7
+  - SOC2 CC6.4
+  azure_cli: az network nsg rule list --nsg-name {resource_name} --resource-group
+    {resource_group} --query "[?access=='Allow' && direction=='Inbound']"
+  azure_portal_steps:
+  - Open the NSG → Inbound security rules
+  - Remove or restrict rules allowing TCP 22 from Any / Internet
+display_title: NSG allows SSH from the internet
+pack_id: pack_azure_network
+provider_type: azure_network_security_group
