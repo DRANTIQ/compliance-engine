@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_008
+version: 1.0.0
 title: RDS instances must export database logs to CloudWatch
 provider: aws
 resource_type: database.instance

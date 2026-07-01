@@ -51,3 +51,4 @@ remediation:
     \ true\n  RestrictPublicBuckets: true"
 display_title: Public S3 bucket detected
 pack_id: pack_aws_storage
+version: 1.0.0

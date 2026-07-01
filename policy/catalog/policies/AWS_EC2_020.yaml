@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_020
+version: 1.0.0
 title: Running EC2 instances should not disable the instance metadata endpoint
 provider: aws
 resource_type: compute.instance

@@ -31,3 +31,4 @@ remediation:
   - SOC2 CC6.3
 display_title: IAM user has direct policy attachments
 pack_id: pack_aws_identity
+version: 1.0.0

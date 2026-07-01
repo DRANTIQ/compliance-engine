@@ -42,6 +42,7 @@ def _parse_policy(data: dict[str, Any]) -> PolicyDefinition:
         cis_control_id=data.get("cis_control_id"),
         display_title=data.get("display_title"),
         pack_id=data.get("pack_id"),
+        version=str(data.get("version") or "1.0.0"),
     )
 
 

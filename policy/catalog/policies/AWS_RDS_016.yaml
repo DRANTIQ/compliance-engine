@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_016
+version: 1.0.0
 title: DynamoDB tables must enable point-in-time recovery
 provider: aws
 resource_type: database.table

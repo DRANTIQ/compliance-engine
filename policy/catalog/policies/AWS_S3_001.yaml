@@ -35,3 +35,4 @@ remediation:
   - SOC2 CC6.6
 display_title: S3 bucket allows insecure HTTP
 pack_id: pack_aws_storage
+version: 1.0.0

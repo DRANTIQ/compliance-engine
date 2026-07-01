@@ -47,6 +47,9 @@ def test_enrich_customer_finding_has_display_and_remediation() -> None:
     assert item["remediation"]["aws_cli"]
     assert "CIS" not in str(item["frameworks"])
     assert item["remediation"]["framework_mappings"] == ["SOC2 CC6.6", "NIST AC-3"]
+    assert item.get("policy_version") == "1.0.0"
+    assert item["risk_signals"]["risk_score"] >= 90
+    assert item["risk_signals"]["internet_exposed"] is True
     framework_names = {f["framework"] for f in item["frameworks"]}
     assert "SOC 2" in framework_names
     assert "NIST 800-53" in framework_names

@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_015
+version: 1.0.0
 title: DynamoDB tables must have server-side encryption enabled
 provider: aws
 resource_type: database.table

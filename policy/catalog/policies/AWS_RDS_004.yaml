@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_004
+version: 1.0.0
 title: RDS instances must retain automated backups for at least 7 days
 provider: aws
 resource_type: database.instance

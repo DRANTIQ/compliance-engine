@@ -27,3 +27,4 @@ remediation:
   - SOC2 CC6.2
 display_title: Root account has active access keys
 pack_id: pack_aws_identity
+version: 1.0.0

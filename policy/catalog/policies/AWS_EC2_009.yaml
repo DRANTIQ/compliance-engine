@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_009
+version: 1.0.0
 title: EC2 serial console access must be disabled
 provider: aws
 resource_type: identity.account

@@ -42,7 +42,6 @@ class ControlResultResponse(BaseModel):
 class CoverageSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    total_checks: int
     assessed: int
     automated: int
     not_assessed: int
@@ -103,8 +102,8 @@ async def list_frameworks(
     response_model=ScanComplianceResponse,
     summary="Security assessment matrix for scan",
     description=(
-        "Full assessment result: score, per-check status, linked findings, and coverage. "
-        "Used by platform-ui Framework coverage tab."
+        "Full assessment result: score, coverage by assessment type, linked findings. "
+        "Used by platform-ui compliance lens tab."
     ),
     responses={200: {"description": "Assessment matrix"}, 404: {"description": "Results not found"}},
 )
@@ -127,4 +126,8 @@ async def get_scan_compliance(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="compliance results not found for scan",
         )
+    if customer_only and isinstance(result.get("coverage"), dict):
+        coverage = dict(result["coverage"])
+        coverage.pop("total_checks", None)
+        result["coverage"] = coverage
     return ScanComplianceResponse(**result)

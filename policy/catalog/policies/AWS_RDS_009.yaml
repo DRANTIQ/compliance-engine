@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_009
+version: 1.0.0
 title: RDS instances should enable enhanced monitoring
 provider: aws
 resource_type: database.instance

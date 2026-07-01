@@ -42,3 +42,4 @@ remediation:
   - SOC2 CC6.3
 display_title: IAM user without MFA
 pack_id: pack_aws_identity
+version: 1.0.0

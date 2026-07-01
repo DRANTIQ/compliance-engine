@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_001
+version: 1.0.0
 title: Lambda function must not allow public invocation
 provider: aws
 resource_type: compute.function

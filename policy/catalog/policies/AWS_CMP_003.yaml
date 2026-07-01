@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_003
+version: 1.0.0
 title: Lambda function must have active X-Ray tracing
 provider: aws
 resource_type: compute.function

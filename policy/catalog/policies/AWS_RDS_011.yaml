@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_011
+version: 1.0.0
 title: RDS snapshots must not be publicly shared
 provider: aws
 resource_type: database.snapshot

@@ -27,3 +27,4 @@ remediation:
   - SOC2 CC6.7
 display_title: EFS encryption disabled
 pack_id: pack_aws_storage
+version: 1.0.0

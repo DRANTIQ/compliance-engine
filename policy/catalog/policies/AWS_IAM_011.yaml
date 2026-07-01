@@ -32,3 +32,4 @@ remediation:
   - SOC2 CC6.1
 display_title: AWS Support access role missing
 pack_id: pack_aws_identity
+version: 1.0.0

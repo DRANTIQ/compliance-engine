@@ -115,7 +115,7 @@ packs:
   - AWS_EC2_020
 - pack_id: pack_aws_core
   display_title: AWS core security
-  description: All Drantiq AWS security checks (default bundle)
+  description: All Drantiq AWS security controls (default bundle)
   policy_ids:
   - AWS_EFS_001
   - AWS_IAM_001

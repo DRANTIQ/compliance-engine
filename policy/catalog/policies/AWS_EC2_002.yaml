@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_002
+version: 1.0.0
 title: EC2 IMDS hop limit must not exceed 1
 provider: aws
 resource_type: compute.instance

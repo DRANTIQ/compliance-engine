@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_004
+version: 1.0.0
 title: EC2 instances must not disable source/destination checks
 provider: aws
 resource_type: compute.instance

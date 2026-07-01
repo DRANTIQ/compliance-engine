@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_005
+version: 1.0.0
 title: Lambda function must configure a dead letter queue
 provider: aws
 resource_type: compute.function

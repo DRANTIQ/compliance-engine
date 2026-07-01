@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_015
+version: 1.0.0
 title: GuardDuty RDS login event monitoring must be enabled
 provider: aws
 resource_type: security.detector

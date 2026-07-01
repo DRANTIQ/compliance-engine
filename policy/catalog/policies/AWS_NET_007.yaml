@@ -35,3 +35,4 @@ remediation:
   - SOC2 CC6.4
 display_title: EC2 instance not requiring IMDSv2
 pack_id: pack_aws_network
+version: 1.0.0

@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_007
+version: 1.0.0
 title: EBS snapshots must not be publicly shared
 provider: aws
 resource_type: storage.snapshot

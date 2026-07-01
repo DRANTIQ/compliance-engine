@@ -33,3 +33,4 @@ remediation:
   - SOC2 CC7.2
 display_title: VPC flow logs disabled
 pack_id: pack_aws_logging
+version: 1.0.0

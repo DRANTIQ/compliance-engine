@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_005
+version: 1.0.0
 title: Account-owned AMIs must not be public
 provider: aws
 resource_type: compute.image

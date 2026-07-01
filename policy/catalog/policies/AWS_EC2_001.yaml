@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_001
+version: 1.0.0
 title: Running EC2 instances must have termination protection enabled
 provider: aws
 resource_type: compute.instance

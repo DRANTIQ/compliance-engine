@@ -34,3 +34,4 @@ remediation:
   aws_cli: aws cloudtrail update-trail --name {trail_name} --enable-log-file-validation
 display_title: CloudTrail log validation disabled
 pack_id: pack_aws_logging
+version: 1.0.0

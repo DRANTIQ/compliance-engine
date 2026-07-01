@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_002
+version: 1.0.0
 title: Lambda function URL must not use unauthenticated access
 provider: aws
 resource_type: compute.function

@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_005
+version: 1.0.0
 title: RDS instances should use Multi-AZ for high availability
 provider: aws
 resource_type: database.instance

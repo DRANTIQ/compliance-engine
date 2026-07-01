@@ -49,6 +49,7 @@ class PolicyDefinition:
     cis_control_id: str | None = None
     display_title: str | None = None
     pack_id: str | None = None
+    version: str = "1.0.0"
 
     def customer_display_title(self) -> str:
         if self.display_title:

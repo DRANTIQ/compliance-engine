@@ -64,6 +64,21 @@ class FixPriorityItem(BaseModel):
     frameworks: list[FrameworkRef] = Field(default_factory=list)
     internet_exposed: bool = False
     data_sensitive: bool = False
+    risk_score: int = Field(default=0, description="Composite risk score 0–100")
+
+
+class RiskSignalsResponse(BaseModel):
+    risk_score: int
+    internet_exposed: bool
+    data_sensitive: bool
+    confidence: str
+
+
+class RelatedResourceRef(BaseModel):
+    resource_id: str
+    resource_name: str
+    resource_type: str
+    relationship_type: str
 
 
 class ResourceFindingSummary(BaseModel):
@@ -120,5 +135,8 @@ class FindingDetailResponse(BaseModel):
     evidence: dict
     remediation: CustomerRemediationResponse
     frameworks: list[FrameworkRef] = Field(default_factory=list)
+    policy_version: str = Field(default="1.0.0", description="Security control version")
+    risk_signals: RiskSignalsResponse | None = None
+    related_resources: list[RelatedResourceRef] = Field(default_factory=list)
     evaluated_at: str
     created_at: str

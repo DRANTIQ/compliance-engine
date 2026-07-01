@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_018
+version: 1.0.0
 title: ElastiCache replication groups must encrypt data at rest
 provider: aws
 resource_type: database.cache

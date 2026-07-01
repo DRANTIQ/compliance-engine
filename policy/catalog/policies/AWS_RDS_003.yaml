@@ -27,3 +27,4 @@ remediation:
   - SOC2 CC6.4
 display_title: RDS instance publicly accessible
 pack_id: pack_aws_data
+version: 1.0.0

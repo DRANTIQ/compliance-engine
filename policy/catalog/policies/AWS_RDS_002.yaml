@@ -27,3 +27,4 @@ remediation:
   - SOC2 CC8.1
 display_title: RDS auto minor version upgrade disabled
 pack_id: pack_aws_data
+version: 1.0.0

@@ -11,8 +11,10 @@ from platform_backend.api.schemas.customer_experience import (
     FindingDetailResponse,
 )
 from platform_backend.db.pool import DatabasePool
+from platform_backend.assets.repositories.resources import AssetRepository
 from platform_backend.findings.experience import (
     build_affected_resources,
+    build_related_resources,
     enrich_customer_finding,
     parse_framework_mappings,
 )
@@ -38,7 +40,7 @@ class RemediationResponse(BaseModel):
 
 class FindingResponse(BaseModel):
     id: str
-    policy_id: str | None = Field(default=None, description="Internal check ID e.g. AWS_S3_001")
+    policy_id: str | None = Field(default=None, description="Internal control ID e.g. AWS_S3_001")
     resource_id: str
     resource_type: str
     result: str = Field(description="pass | fail | error")
@@ -56,6 +58,10 @@ class FindingResponse(BaseModel):
 
 async def get_findings_repo(db: DatabasePool = Depends(get_db_pool)) -> FindingsRepository:
     return FindingsRepository(db)
+
+
+async def get_assets_repo(db: DatabasePool = Depends(get_db_pool)) -> AssetRepository:
+    return AssetRepository(db)
 
 
 @router.get(
@@ -129,6 +135,7 @@ async def get_finding(
     tenant_id: UUID = Depends(get_tenant_id),
     principal: PlatformPrincipal = Depends(get_principal),
     repo: FindingsRepository = Depends(get_findings_repo),
+    assets_repo: AssetRepository = Depends(get_assets_repo),
     expand: str | None = Query(
         default=None,
         description="super_admin only: expand=framework_mappings for full internal mappings",
@@ -138,6 +145,21 @@ async def get_finding(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="finding not found")
     item = enrich_customer_finding(row)
+    relationships = await assets_repo.list_relationships(tenant_id, scan_id, row["resource_id"])
+    peer_ids = {
+        rel["to_resource_id"] if rel["from_resource_id"] == row["resource_id"] else rel["from_resource_id"]
+        for rel in relationships
+    }
+    assets_by_id: dict[str, dict] = {}
+    for peer_id in peer_ids:
+        asset = await assets_repo.get(tenant_id, scan_id, peer_id)
+        if asset:
+            assets_by_id[peer_id] = asset
+    item["related_resources"] = build_related_resources(
+        row["resource_id"],
+        relationships,
+        assets_by_id=assets_by_id,
+    )
     if expand == "framework_mappings" and principal.role == "super_admin":
         internal = enrich_finding(row, customer_visible=False)
         rem = item.get("remediation") or {}

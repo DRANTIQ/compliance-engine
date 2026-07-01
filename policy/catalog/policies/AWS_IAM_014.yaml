@@ -28,3 +28,4 @@ remediation:
   - SOC2 CC6.1
 display_title: IAM Access Analyzer disabled
 pack_id: pack_aws_identity
+version: 1.0.0

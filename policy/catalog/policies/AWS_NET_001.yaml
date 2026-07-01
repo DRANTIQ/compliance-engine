@@ -34,3 +34,4 @@ remediation:
   aws_cli: aws ec2 enable-ebs-encryption-by-default --region {region}
 display_title: Default EBS encryption disabled
 pack_id: pack_aws_network
+version: 1.0.0

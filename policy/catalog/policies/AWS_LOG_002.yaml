@@ -34,3 +34,4 @@ remediation:
   - SOC2 CC7.3
 display_title: AWS Config not enabled
 pack_id: pack_aws_logging
+version: 1.0.0

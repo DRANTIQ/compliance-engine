@@ -32,3 +32,4 @@ remediation:
   - SOC2 CC7.2
 display_title: S3 read activity not logged
 pack_id: pack_aws_storage
+version: 1.0.0

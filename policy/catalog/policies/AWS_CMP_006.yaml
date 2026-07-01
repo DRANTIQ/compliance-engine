@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_006
+version: 1.0.0
 title: Amazon GuardDuty must be enabled
 provider: aws
 resource_type: security.detector

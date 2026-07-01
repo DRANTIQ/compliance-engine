@@ -15,6 +15,14 @@ SEVERITY_ORDER: dict[str, int] = {
     "info": 4,
 }
 
+SEVERITY_RISK_BASE: dict[str, int] = {
+    "critical": 92,
+    "high": 72,
+    "medium": 48,
+    "low": 28,
+    "info": 12,
+}
+
 RESOURCE_TYPE_LABEL: dict[str, str] = {
     "storage.bucket": "S3 bucket",
     "storage.filesystem": "EFS file system",
@@ -103,6 +111,63 @@ def _internet_exposed(finding: dict[str, Any]) -> bool:
     return finding.get("severity") == "critical" and finding.get("policy_id", "").startswith("AWS_S3_")
 
 
+def compute_risk_signals(finding: dict[str, Any]) -> dict[str, Any]:
+    """Customer risk score from severity + exposure signals (foundation for Wiz-style prioritization)."""
+    score = SEVERITY_RISK_BASE.get(finding.get("severity", ""), 45)
+    internet = _internet_exposed(finding)
+    sensitive = finding.get("resource_type") in DATA_SENSITIVE_TYPES
+    if internet:
+        score = min(100, score + 12)
+    if sensitive:
+        score = min(100, score + 8)
+    evidence = finding.get("evidence") or {}
+    confidence = "high" if isinstance(evidence, dict) and evidence else "medium"
+    return {
+        "risk_score": score,
+        "internet_exposed": internet,
+        "data_sensitive": sensitive,
+        "confidence": confidence,
+    }
+
+
+def build_related_resources(
+    resource_id: str,
+    relationships: list[dict[str, Any]],
+    *,
+    assets_by_id: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Relationship graph edges for a finding's primary resource (not an attack path)."""
+    assets_by_id = assets_by_id or {}
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for rel in relationships:
+        peer = (
+            rel["to_resource_id"]
+            if rel.get("from_resource_id") == resource_id
+            else rel.get("from_resource_id")
+        )
+        if not peer or peer == resource_id or peer in seen:
+            continue
+        seen.add(peer)
+        asset = assets_by_id.get(peer, {})
+        props = asset.get("properties") if isinstance(asset.get("properties"), dict) else {}
+        name = (
+            props.get("name")
+            or props.get("instance_id")
+            or props.get("role_name")
+            or peer.split("/")[-1]
+        )
+        out.append(
+            {
+                "resource_id": peer,
+                "resource_name": str(name),
+                "resource_type": str(asset.get("resource_type") or ""),
+                "relationship_type": str(rel.get("relationship_type") or "related"),
+            }
+        )
+    return out
+
+
 def fix_priority_sort_key(finding: dict[str, Any], remediation: dict[str, Any]) -> tuple:
     sev = SEVERITY_ORDER.get(finding.get("severity", ""), 99)
     exposure = 0 if _internet_exposed(finding) else 1
@@ -141,6 +206,7 @@ def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool =
     )
     technical = finding.get("title") or finding.get("policy_id") or "Finding"
     customer_mappings = [m for m in (rem.get("framework_mappings") or []) if not str(m).strip().upper().startswith("CIS ")]
+    risk_signals = compute_risk_signals(finding)
     out: dict[str, Any] = {
         **base,
         "display_title": display,
@@ -152,6 +218,8 @@ def enrich_customer_finding(finding: dict[str, Any], *, include_priority: bool =
         "business_impact": rem.get("business_impact"),
         "frameworks": parse_framework_mappings(customer_mappings, customer_visible=True),
         "remediation": customer_remediation(rem),
+        "policy_version": policy.version if policy else "1.0.0",
+        "risk_signals": risk_signals,
     }
     if include_priority:
         out["priority_rank"] = fix_priority_sort_key(finding, rem)
@@ -231,6 +299,7 @@ def build_fix_priorities(findings: list[dict[str, Any]], *, limit: int = 20) -> 
                 "frameworks": item["frameworks"],
                 "internet_exposed": _internet_exposed(finding),
                 "data_sensitive": finding.get("resource_type") in DATA_SENSITIVE_TYPES,
+                "risk_score": compute_risk_signals(finding)["risk_score"],
             }
         )
     return out

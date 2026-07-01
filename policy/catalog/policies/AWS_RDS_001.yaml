@@ -27,3 +27,4 @@ remediation:
   - SOC2 CC6.7
 display_title: RDS storage encryption disabled
 pack_id: pack_aws_data
+version: 1.0.0

@@ -342,6 +342,22 @@ ON CONFLICT (framework_id, control_id, policy_id) DO NOTHING;
     path.write_text(sql, encoding="utf-8")
 
 
+DEFAULT_POLICY_VERSION = "1.0.0"
+
+
+def ensure_policy_versions() -> None:
+    """Ensure every policy YAML has a semver for control versioning."""
+    for path in sorted(POLICIES_DIR.glob("AWS_*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if data.get("version"):
+            continue
+        data["version"] = DEFAULT_POLICY_VERSION
+        path.write_text(
+            yaml.dump(data, sort_keys=False, allow_unicode=True, default_flow_style=False),
+            encoding="utf-8",
+        )
+
+
 def sync_policy_yaml_files(controls: list[dict]) -> None:
     """Merge display_title and pack_id into policies/*.yaml (runtime fields only)."""
     for ref, policy_id in POLICY_IDS.items():
@@ -351,6 +367,7 @@ def sync_policy_yaml_files(controls: list[dict]) -> None:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         data["display_title"] = DISPLAY_TITLES[policy_id]
         data["pack_id"] = PACK_BY_POLICY_ID[policy_id]
+        data.setdefault("version", DEFAULT_POLICY_VERSION)
         data.pop("internal_reference", None)
         data.pop("cis_control_id", None)
         rem = data.get("remediation")
@@ -414,7 +431,7 @@ def write_packs_yaml(
         },
         "pack_aws_core": {
             "display_title": "AWS core security",
-            "description": "All Drantiq AWS security checks (default bundle)",
+            "description": "All Drantiq AWS security controls (default bundle)",
             "policy_ids": all_core_ids,
         },
     }
@@ -844,6 +861,7 @@ def write_wave_policy_yamls(policies: list[dict]) -> None:
         nist = policy.get("nist_mappings") or []
         body = {
             "policy_id": policy_id,
+            "version": DEFAULT_POLICY_VERSION,
             "title": title,
             "provider": "aws",
             "resource_type": policy["resource_type"],
@@ -969,6 +987,7 @@ def main() -> None:
     write_wave_policy_yamls(w2_policies)
     write_wave_policy_yamls(w3_policies)
     write_packs_yaml(w1_policies, w2_policies, w3_policies)
+    ensure_policy_versions()
     write_commercial_compliance_migration(controls)
     write_nist_baseline_migration()
     sync_soc2_remediation_mappings()

@@ -30,3 +30,4 @@ remediation:
   - SOC2 CC6.4
 display_title: Security group allows admin ports (IPv6)
 pack_id: pack_aws_network
+version: 1.0.0

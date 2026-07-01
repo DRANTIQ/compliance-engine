@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_010
+version: 1.0.0
 title: AWS default VPC should not be used for production workloads
 provider: aws
 resource_type: identity.account

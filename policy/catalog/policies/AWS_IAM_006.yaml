@@ -29,3 +29,4 @@ remediation:
   - SOC2 CC6.2
 display_title: Unused IAM credentials still active
 pack_id: pack_aws_identity
+version: 1.0.0

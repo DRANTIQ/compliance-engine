@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_012
+version: 1.0.0
 title: RDS snapshots must be encrypted
 provider: aws
 resource_type: database.snapshot

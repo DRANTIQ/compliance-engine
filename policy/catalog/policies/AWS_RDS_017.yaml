@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_017
+version: 1.0.0
 title: DynamoDB tables must have deletion protection enabled
 provider: aws
 resource_type: database.table

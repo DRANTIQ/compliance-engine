@@ -36,3 +36,4 @@ remediation:
   - SOC2 CC6.4
 display_title: EC2 instance missing IAM role
 pack_id: pack_aws_identity
+version: 1.0.0

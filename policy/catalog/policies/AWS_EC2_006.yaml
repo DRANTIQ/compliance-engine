@@ -1,4 +1,5 @@
 policy_id: AWS_EC2_006
+version: 1.0.0
 title: AMIs must use encrypted root EBS volumes
 provider: aws
 resource_type: compute.image

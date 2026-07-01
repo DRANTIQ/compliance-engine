@@ -28,3 +28,4 @@ remediation:
   - SOC2 CC6.4
 display_title: NACL allows unrestricted admin ports
 pack_id: pack_aws_network
+version: 1.0.0

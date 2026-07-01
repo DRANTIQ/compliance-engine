@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_011
+version: 1.0.0
 title: In-use EBS volumes must be encrypted
 provider: aws
 resource_type: storage.volume

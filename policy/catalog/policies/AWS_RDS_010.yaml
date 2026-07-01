@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_010
+version: 1.0.0
 title: RDS instances should enable Performance Insights
 provider: aws
 resource_type: database.instance

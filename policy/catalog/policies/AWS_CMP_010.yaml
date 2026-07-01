@@ -1,4 +1,5 @@
 policy_id: AWS_CMP_010
+version: 1.0.0
 title: EC2 instances should not have a public IP address
 provider: aws
 resource_type: compute.instance

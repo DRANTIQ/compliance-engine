@@ -26,3 +26,4 @@ remediation:
   - SOC2 CC7.1
 display_title: CloudTrail logs not KMS encrypted
 pack_id: pack_aws_logging
+version: 1.0.0

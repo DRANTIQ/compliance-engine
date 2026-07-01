@@ -1,4 +1,5 @@
 policy_id: AWS_RDS_013
+version: 1.0.0
 title: RDS clusters must have deletion protection enabled
 provider: aws
 resource_type: database.cluster

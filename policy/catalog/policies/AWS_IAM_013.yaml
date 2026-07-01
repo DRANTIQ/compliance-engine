@@ -30,3 +30,4 @@ remediation:
   - SOC2 CC6.6
 display_title: Expired IAM server certificate
 pack_id: pack_aws_identity
+version: 1.0.0
